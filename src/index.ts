@@ -294,6 +294,15 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
+  const npmShrinkwrapJsonExists = await checkIfFileExists(result.name, 'npm-shrinkwrap.json');
+
+  if (npmShrinkwrapJsonExists) {
+    log(chalk.green`  npm detected`);
+    packageManagerStats.npm++;
+    stats.has_lockfile++;
+    return;
+  }
+
   const yarnLockExists = await checkIfFileExists(result.name, 'yarn.lock');
 
   if (yarnLockExists) {
