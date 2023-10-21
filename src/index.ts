@@ -339,9 +339,74 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
+  stats.does_not_have_lockfile++;
+
+  // Check for package manager in scripts
+  if (rawPackageJson) {
+    if (rawPackageJson.match(/npm run/i)) {
+      log(chalk.green`  npm detected`);
+      packageManagerStats.npm++;
+      return;
+    }
+
+    if (rawPackageJson.match(/yarn run/i)) {
+      log(chalk.red`  Yarn detected, but not sure which version`);
+      packageManagerStats.unknown++;
+      return;
+    }
+
+    if (rawPackageJson.match(/pnpm run/i)) {
+      log(chalk.green`  pnpm detected`);
+      packageManagerStats.pnpm++;
+      return;
+    }
+
+    if (rawPackageJson.match(/bun run/i)) {
+      log(chalk.green`  bun detected`);
+      packageManagerStats.bun++;
+      return;
+    }
+  }
+
+  // README.md intentionally omitted because it may contain installation instructions for
+  // multiple package managers
+
+  // CONTRIBUTING.md is generally intended for contributors, not users, so it's a better
+  // indicator of the package manager used by the project
+  const contributingMdExists = await checkIfFileExists(result.name, 'CONTRIBUTING.md');
+
+  if (contributingMdExists) {
+    const contributingMd = await fetchWithCache(
+      `https://raw.githubusercontent.com/${result.name}/master/CONTRIBUTING.md`,
+    );
+
+    if (contributingMd.match(/npm i/i)) {
+      log(chalk.green`  npm detected`);
+      packageManagerStats.npm++;
+      return;
+    }
+
+    if (contributingMd.match(/yarn add/i)) {
+      log(chalk.red`  Yarn detected, but not sure which version`);
+      packageManagerStats.unknown++;
+      return;
+    }
+
+    if (contributingMd.match(/pnpm i/i)) {
+      log(chalk.green`  pnpm detected`);
+      packageManagerStats.pnpm++;
+      return;
+    }
+
+    if (contributingMd.match(/bun i/i)) {
+      log(chalk.green`  bun detected`);
+      packageManagerStats.bun++;
+      return;
+    }
+  }
+
   log(chalk.red`  No package manager detected`);
   packageManagerStats.unknown++;
-  stats.does_not_have_lockfile++;
 });
 
 info(stats);
