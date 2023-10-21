@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
 import chalk from 'chalk';
+import semver from 'semver';
 
 const CACHE_DIR = '.cache';
 const GITHUB_API_URL = 'https://api.github.com';
@@ -159,6 +160,14 @@ const packageManagerStats = {
   unknown: 0,
 };
 
+const packageManagerVersionStats = {
+  npm: {},
+  yarn_classic: {},
+  yarn_modern: {},
+  pnpm: {},
+  bun: {},
+};
+
 const fileExistsStatsPath = `${CACHE_DIR}/file-exists-stats.json`;
 const fileExistsStats: Record<string, boolean> = fs.existsSync(fileExistsStatsPath)
   ? (JSON.parse(fs.readFileSync(fileExistsStatsPath, 'utf-8')) as Record<string, boolean>)
@@ -254,27 +263,37 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       log(chalk.gray`    Found packageManager`);
       stats.uses_corepack++;
 
+      const version = semver.major(packageJson.packageManager.match(/@(([0-9]\.?){1,})/)?.[1]);
+
       if (packageJson.packageManager.match(/npm/i)) {
         log(chalk.green`  npm detected`);
         packageManagerStats.npm++;
+        const npmStats: Record<string, number> = packageManagerVersionStats.npm;
+        npmStats[version] = (npmStats[version] ?? 0) + 1;
         return;
       }
 
       if (packageJson.packageManager.match(/yarn@1/i)) {
         log(chalk.green`  Yarn Classic detected`);
         packageManagerStats.yarn_classic++;
+        const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
+        yarnClassicStats[version] = (yarnClassicStats[version] ?? 0) + 1;
         return;
       }
 
       if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
         log(chalk.green`  Yarn Modern detected`);
         packageManagerStats.yarn_modern++;
+        const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
+        yarnModernStats[version] = (yarnModernStats[version] ?? 0) + 1;
         return;
       }
 
       if (packageJson.packageManager.match(/pnpm/i)) {
         log(chalk.green`  pnpm detected`);
         packageManagerStats.pnpm++;
+        const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
+        pnpmStats[version] = (pnpmStats[version] ?? 0) + 1;
         return;
       }
 
@@ -411,3 +430,4 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
 info(stats);
 info(packageManagerStats);
+info(packageManagerVersionStats);
