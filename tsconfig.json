@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "downlevelIteration": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "noUncheckedIndexedAccess": true,
+    "outDir": "dist",
+    "strict": true,
+    "target": "esnext",
+    "types": ["bun-types"],
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src"]
+}

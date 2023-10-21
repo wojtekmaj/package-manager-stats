@@ -1,0 +1,46 @@
+{
+  "name": "package-manager-stats",
+  "version": "1.0.0",
+  "description": "Script to get stats about package managers used in most popular projects on GitHub.",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "lint": "eslint . --ext .ts",
+    "prettier": "prettier --check . --cache",
+    "test": "bun run lint && bun run prettier",
+    "start": "bun src/index.ts"
+  },
+  "keywords": [
+    "package manager",
+    "stats",
+    "statistics",
+    "npm",
+    "yarn",
+    "pnpm",
+    "bun"
+  ],
+  "author": {
+    "name": "Wojciech Maj",
+    "email": "kontakt@wojtekmaj.pl"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@wojtekmaj/async-array-utils": "^1.8.0",
+    "chalk": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "20",
+    "bun-types": "^1.0.0",
+    "eslint": "^8.26.0",
+    "eslint-config-wojtekmaj": "^0.9.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wojtekmaj/package-manager-stats.git"
+  },
+  "funding": "https://github.com/wojtekmaj/package-manager-stats?sponsor=1"
+}
