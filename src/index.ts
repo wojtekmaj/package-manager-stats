@@ -78,7 +78,7 @@ async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<
   const requestText = await response.text();
 
   // Ensure the cache directory exists
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
+  fs.mkdirSync(`${CACHE_DIR}/fetch`, { recursive: true });
 
   // Write the response to the cache
   fs.writeFileSync(cachePath, requestText);
