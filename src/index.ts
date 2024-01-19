@@ -428,6 +428,19 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   packageManagerStats.unknown++;
 });
 
+const ymd = new Date().toISOString().slice(0, 10);
+
+fs.writeFileSync(`results/${ymd}-stats.json`, JSON.stringify(stats, null, 2) + '\n');
 info(stats);
+
+fs.writeFileSync(
+  `results/${ymd}-package-manager-stats.json`,
+  JSON.stringify(packageManagerStats, null, 2) + '\n',
+);
 info(packageManagerStats);
+
+fs.writeFileSync(
+  `results/${ymd}-package-manager-version-stats.json`,
+  JSON.stringify(packageManagerVersionStats, null, 2) + '\n',
+);
 info(packageManagerVersionStats);
