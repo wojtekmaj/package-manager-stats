@@ -345,7 +345,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
-      throw new Error('packageManager not recognized');
+      throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
     } else {
       log(chalk.gray`    No packageManager found`);
       stats.does_not_use_corepack++;
