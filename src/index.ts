@@ -345,6 +345,14 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
+      if (packageJson.packageManager.match(/bun/i)) {
+        log(chalk.green`  bun detected`);
+        packageManagerStats.bun++;
+        const bunStats: Record<string, number> = packageManagerVersionStats.bun;
+        bunStats[version] = (bunStats[version] ?? 0) + 1;
+        return;
+      }
+
       throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
     } else {
       log(chalk.gray`    No packageManager found`);
