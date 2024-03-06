@@ -5,6 +5,7 @@ import semver from 'semver';
 
 const CACHE_DIR = '.cache';
 const GITHUB_API_URL = 'https://api.github.com';
+const QUERY = 'stars:>1';
 // Each GitHub search results page has 30 items, we can fetch 1000 results with 34 requests
 const MAX_PAGES = 34;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -96,7 +97,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(
     log(chalk.gray`Fetching JavaScript page %s…`, currentPage);
 
     const url = new URL(`${GITHUB_API_URL}/search/repositories`);
-    url.searchParams.set('q', 'stars:>1 language:JavaScript');
+    url.searchParams.set('q', `${QUERY} language:JavaScript`);
     url.searchParams.set('sort', 'stars');
     url.searchParams.set('page', currentPage.toString());
 
@@ -119,7 +120,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(
     log(chalk.gray`Fetching TypeScript page %s…`, currentPage);
 
     const url = new URL(`${GITHUB_API_URL}/search/repositories`);
-    url.searchParams.set('q', 'stars:>1 language:TypeScript');
+    url.searchParams.set('q', `${QUERY} language:TypeScript`);
     url.searchParams.set('sort', 'stars');
     url.searchParams.set('page', currentPage.toString());
 
