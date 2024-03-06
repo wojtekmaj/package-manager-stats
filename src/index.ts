@@ -45,6 +45,7 @@ type SearchResult = {
 };
 
 type SearchResultsPage = {
+  total_count: number;
   items: SearchResult[];
 };
 
@@ -101,51 +102,79 @@ async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<
 
 const results: SearchResultsPage[] = [];
 
-await (DEBUG ? asyncForEachStrict : asyncForEach)(
-  Array.from({ length: MAX_PAGES }),
-  async (_, i) => {
-    const currentPage = i + 1;
+let totalJavaScriptPages: number | undefined = undefined;
+
+for (let i = 0; i < MAX_PAGES; i++) {
+  const currentPage = i + 1;
+
+  if (totalJavaScriptPages) {
+    if (currentPage > totalJavaScriptPages) {
+      break;
+    }
+
+    log(chalk.gray`Fetching JavaScript page %s/%s…`, currentPage, totalJavaScriptPages);
+  } else {
     log(chalk.gray`Fetching JavaScript page %s…`, currentPage);
+  }
 
-    const url = new URL(`${GITHUB_API_URL}/search/repositories`);
-    url.searchParams.set('q', `${QUERY} language:JavaScript`);
-    url.searchParams.set('sort', 'stars');
-    url.searchParams.set('page', currentPage.toString());
+  const url = new URL(`${GITHUB_API_URL}/search/repositories`);
+  url.searchParams.set('q', `${QUERY} language:JavaScript`);
+  url.searchParams.set('sort', 'stars');
+  url.searchParams.set('page', currentPage.toString());
 
-    const rawResponse = await fetchWithCache(url, {
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-      },
-    });
+  const rawResponse = await fetchWithCache(url, {
+    headers: {
+      Authorization: `token ${process.env.GITHUB_TOKEN}`,
+    },
+  });
 
-    const response = JSON.parse(rawResponse) as SearchResultsPage;
+  const response = JSON.parse(rawResponse) as SearchResultsPage;
 
-    results.push(response);
-  },
-);
+  results.push(response);
 
-await (DEBUG ? asyncForEachStrict : asyncForEach)(
-  Array.from({ length: MAX_PAGES }),
-  async (_, i) => {
-    const currentPage = i + 1;
+  totalJavaScriptPages = Math.ceil(response.total_count / 30);
+
+  if (results.length === response.total_count) {
+    break;
+  }
+}
+
+let totalTypeScriptPages: number | undefined = undefined;
+
+for (let i = 0; i < MAX_PAGES; i++) {
+  const currentPage = i + 1;
+
+  if (totalTypeScriptPages) {
+    if (currentPage > totalTypeScriptPages) {
+      break;
+    }
+
+    log(chalk.gray`Fetching TypeScript page %s/%s…`, currentPage, totalTypeScriptPages);
+  } else {
     log(chalk.gray`Fetching TypeScript page %s…`, currentPage);
+  }
 
-    const url = new URL(`${GITHUB_API_URL}/search/repositories`);
-    url.searchParams.set('q', `${QUERY} language:TypeScript`);
-    url.searchParams.set('sort', 'stars');
-    url.searchParams.set('page', currentPage.toString());
+  const url = new URL(`${GITHUB_API_URL}/search/repositories`);
+  url.searchParams.set('q', `${QUERY} language:TypeScript`);
+  url.searchParams.set('sort', 'stars');
+  url.searchParams.set('page', currentPage.toString());
 
-    const rawResponse = await fetchWithCache(url, {
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-      },
-    });
+  const rawResponse = await fetchWithCache(url, {
+    headers: {
+      Authorization: `token ${process.env.GITHUB_TOKEN}`,
+    },
+  });
 
-    const response = JSON.parse(rawResponse) as SearchResultsPage;
+  const response = JSON.parse(rawResponse) as SearchResultsPage;
 
-    results.push(response);
-  },
-);
+  results.push(response);
+
+  totalTypeScriptPages = Math.ceil(response.total_count / 30);
+
+  if (results.length === response.total_count) {
+    break;
+  }
+}
 
 const flattenedResults = results
   .flatMap((page) => page.items)
