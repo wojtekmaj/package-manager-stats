@@ -223,8 +223,8 @@ async function checkIfFileExists(resultName: string, filename: string): Promise<
  * Check for pnpm-lock.yaml. If present, count as pnpm.
  * Check for bun.lockb. If present, count as bun.
  */
-await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (result) => {
-  log(chalk.bold(result.name));
+await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (result, index) => {
+  log(chalk.bold(result.name) + ' ' + chalk.gray`(%s/%s)`, index + 1, flattenedResults.length);
 
   const packageJsonExists = await checkIfFileExists(result.name, 'package.json');
 
