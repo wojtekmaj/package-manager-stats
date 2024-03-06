@@ -219,7 +219,7 @@ async function checkIfFileExists(resultName: string, filename: string): Promise<
  * Check for package-lock.json. If present, count as npm.
  * Check for yarn.lock, and…
  *   Check for .yarnrc.yml. If present, count as Yarn Modern.
- *   If not, count as Yarn Classic.
+ *   Check for "# yarn lockfile v1". If present, count as Yarn Classic. If not, count as Yarn Modern.
  * Check for pnpm-lock.yaml. If present, count as pnpm.
  * Check for bun.lockb. If present, count as bun.
  */
@@ -334,9 +334,29 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       packageManagerStats.yarn_modern++;
       return;
     } else {
-      log(chalk.green`  Yarn Classic detected`);
-      packageManagerStats.yarn_classic++;
-      return;
+      let yarnLock;
+      try {
+        yarnLock = await fetchWithCache(
+          `https://raw.githubusercontent.com/${result.name}/master/yarn.lock`,
+        );
+      } catch (error) {
+        if (error instanceof NetworkError && error.status === 404) {
+          log(chalk.gray`  No yarn.lock found`);
+          return;
+        }
+
+        throw error;
+      }
+
+      if (yarnLock.match(/# yarn lockfile v1/i)) {
+        log(chalk.green`  Yarn Classic detected`);
+        packageManagerStats.yarn_classic++;
+        return;
+      } else {
+        log(chalk.green`  Yarn Modern detected`);
+        packageManagerStats.yarn_modern++;
+        return;
+      }
     }
   }
 
