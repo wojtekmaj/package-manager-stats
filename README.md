@@ -14,6 +14,12 @@ Add `.env` file with GitHub token:
 GITHUB_TOKEN=…
 ```
 
+Install:
+
+```sh
+bun install
+```
+
 Run:
 
 ```sh
