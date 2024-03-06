@@ -28,6 +28,7 @@ type SearchResult = {
   full_name: string;
   url: string;
   html_url: string;
+  default_branch: string;
   stargazers_count: number;
 };
 
@@ -139,6 +140,7 @@ const flattenedResults = results
   .map((item) => ({
     name: item.full_name,
     url: item.html_url,
+    default_branch: item.default_branch,
   }));
 
 const stats = {
@@ -173,8 +175,12 @@ const fileExistsStats: Record<string, boolean> = fs.existsSync(fileExistsStatsPa
   ? (JSON.parse(fs.readFileSync(fileExistsStatsPath, 'utf-8')) as Record<string, boolean>)
   : {};
 
-async function checkIfFileExists(resultName: string, filename: string): Promise<boolean> {
-  const url = `https://raw.githubusercontent.com/${resultName}/master/${filename}`;
+async function checkIfFileExists(
+  resultName: string,
+  branch: string,
+  filename: string,
+): Promise<boolean> {
+  const url = `https://raw.githubusercontent.com/${resultName}/${branch}/${filename}`;
 
   if (url in fileExistsStats) {
     const result = fileExistsStats[url];
@@ -191,7 +197,7 @@ async function checkIfFileExists(resultName: string, filename: string): Promise<
   }
 
   const response = await fetch(
-    `https://raw.githubusercontent.com/${resultName}/master/${filename}`,
+    `https://raw.githubusercontent.com/${resultName}/${branch}/${filename}`,
     {
       method: 'HEAD',
     },
@@ -226,7 +232,9 @@ async function checkIfFileExists(resultName: string, filename: string): Promise<
 await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (result, index) => {
   log(chalk.bold(result.name) + ' ' + chalk.gray`(%s/%s)`, index + 1, flattenedResults.length);
 
-  const packageJsonExists = await checkIfFileExists(result.name, 'package.json');
+  const branch = result.default_branch;
+
+  const packageJsonExists = await checkIfFileExists(result.name, branch, 'package.json');
 
   if (!packageJsonExists) {
     log(chalk.white`  Non-Node.js project`);
@@ -238,9 +246,8 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   let rawPackageJson;
   try {
-    // https://raw.githubusercontent.com/aanand/git-up/master/LICENSE
     rawPackageJson = await fetchWithCache(
-      `https://raw.githubusercontent.com/${result.name}/master/package.json`,
+      `https://raw.githubusercontent.com/${result.name}/${branch}/package.json`,
     );
   } catch (error) {
     if (error instanceof NetworkError && error.status === 404) {
@@ -304,7 +311,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     }
   }
 
-  const packageLockJsonExists = await checkIfFileExists(result.name, 'package-lock.json');
+  const packageLockJsonExists = await checkIfFileExists(result.name, branch, 'package-lock.json');
 
   if (packageLockJsonExists) {
     log(chalk.green`  npm detected`);
@@ -313,7 +320,11 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const npmShrinkwrapJsonExists = await checkIfFileExists(result.name, 'npm-shrinkwrap.json');
+  const npmShrinkwrapJsonExists = await checkIfFileExists(
+    result.name,
+    branch,
+    'npm-shrinkwrap.json',
+  );
 
   if (npmShrinkwrapJsonExists) {
     log(chalk.green`  npm detected`);
@@ -322,12 +333,12 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const yarnLockExists = await checkIfFileExists(result.name, 'yarn.lock');
+  const yarnLockExists = await checkIfFileExists(result.name, branch, 'yarn.lock');
 
   if (yarnLockExists) {
     stats.has_lockfile++;
 
-    const yarnrcYmlExists = await checkIfFileExists(result.name, '.yarnrc.yml');
+    const yarnrcYmlExists = await checkIfFileExists(result.name, branch, '.yarnrc.yml');
 
     if (yarnrcYmlExists) {
       log(chalk.green`  Yarn Modern detected`);
@@ -337,7 +348,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       let yarnLock;
       try {
         yarnLock = await fetchWithCache(
-          `https://raw.githubusercontent.com/${result.name}/master/yarn.lock`,
+          `https://raw.githubusercontent.com/${result.name}/${branch}/yarn.lock`,
         );
       } catch (error) {
         if (error instanceof NetworkError && error.status === 404) {
@@ -360,7 +371,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     }
   }
 
-  const pnpmLockYamlExists = await checkIfFileExists(result.name, 'pnpm-lock.yaml');
+  const pnpmLockYamlExists = await checkIfFileExists(result.name, branch, 'pnpm-lock.yaml');
 
   if (pnpmLockYamlExists) {
     log(chalk.green`  pnpm detected`);
@@ -369,7 +380,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const bunLockbExists = await checkIfFileExists(result.name, 'bun.lockb');
+  const bunLockbExists = await checkIfFileExists(result.name, branch, 'bun.lockb');
 
   if (bunLockbExists) {
     log(chalk.green`  bun detected`);
@@ -412,11 +423,11 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   // CONTRIBUTING.md is generally intended for contributors, not users, so it's a better
   // indicator of the package manager used by the project
-  const contributingMdExists = await checkIfFileExists(result.name, 'CONTRIBUTING.md');
+  const contributingMdExists = await checkIfFileExists(result.name, branch, 'CONTRIBUTING.md');
 
   if (contributingMdExists) {
     const contributingMd = await fetchWithCache(
-      `https://raw.githubusercontent.com/${result.name}/master/CONTRIBUTING.md`,
+      `https://raw.githubusercontent.com/${result.name}/${branch}/CONTRIBUTING.md`,
     );
 
     if (contributingMd.match(/npm i/i)) {

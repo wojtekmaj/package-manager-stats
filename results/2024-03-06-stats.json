@@ -1,9 +1,9 @@
 {
   "total": 2040,
-  "nodejs": 1843,
-  "non_nodejs": 197,
-  "uses_corepack": 214,
-  "does_not_use_corepack": 1629,
-  "has_lockfile": 1248,
-  "does_not_have_lockfile": 381
+  "nodejs": 1855,
+  "non_nodejs": 185,
+  "uses_corepack": 228,
+  "does_not_use_corepack": 1627,
+  "has_lockfile": 1255,
+  "does_not_have_lockfile": 372
 }
