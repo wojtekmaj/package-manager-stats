@@ -10,7 +10,6 @@
     "outDir": "dist",
     "strict": true,
     "target": "esnext",
-    "types": ["bun-types"],
     "verbatimModuleSyntax": true
   },
   "include": ["src"]
