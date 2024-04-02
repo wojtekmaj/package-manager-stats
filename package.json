@@ -8,8 +8,9 @@
     "lint": "eslint . --ext .ts",
     "postinstall": "husky",
     "prettier": "prettier --check . --cache",
-    "test": "bun run lint && bun run prettier",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "test": "bun run lint && bun run tsc && bun run prettier",
+    "tsc": "tsc"
   },
   "keywords": [
     "package manager",

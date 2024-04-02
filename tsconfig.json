@@ -6,6 +6,7 @@
     "isolatedModules": true,
     "module": "esnext",
     "moduleResolution": "node",
+    "noEmit": true,
     "noUncheckedIndexedAccess": true,
     "outDir": "dist",
     "strict": true,
