@@ -1,3 +1,0 @@
-{
-  "*.{css,html,js,json,jsx,md,ts,tsx,yml}": "bun run format --write"
-}
