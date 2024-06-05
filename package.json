@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch index.ts",
+    "format": "prettier --check . --cache",
     "lint": "eslint . --ext .ts",
     "postinstall": "husky",
-    "prettier": "prettier --check . --cache",
     "start": "bun src/index.ts",
-    "test": "bun run lint && bun run tsc && bun run prettier",
+    "test": "bun run lint && bun run tsc && bun run format",
     "tsc": "tsc"
   },
   "keywords": [
