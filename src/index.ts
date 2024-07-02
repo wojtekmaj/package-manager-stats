@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
 import chalk from 'chalk';
 import semver from 'semver';
+import pRetry from 'p-retry';
 
 const CACHE_DIR = '.cache';
 const GITHUB_API_URL = 'https://api.github.com';
@@ -83,11 +84,15 @@ async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<
 
   // Otherwise, fetch the URL
   // log(chalk.gray`  Fetching from network`, input);
-  const response = await fetch(input, init);
+  const response = await pRetry(() =>
+    fetch(input, init).then((response) => {
+      if (!response.ok) {
+        throw new NetworkError(response.status, response.statusText);
+      }
 
-  if (!response.ok) {
-    throw new NetworkError(response.status, response.statusText);
-  }
+      return response;
+    }),
+  );
 
   const requestText = await response.text();
 
