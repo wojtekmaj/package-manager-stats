@@ -316,7 +316,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       log(chalk.gray`    Found packageManager`);
       stats.uses_corepack++;
 
-      const version = semver.major(packageJson.packageManager.match(/@(([0-9]\.?){1,})/)?.[1]);
+      const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
 
       if (packageJson.packageManager.match(/npm/i)) {
         log(chalk.green`  npm detected`);
