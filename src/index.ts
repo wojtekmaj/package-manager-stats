@@ -132,7 +132,7 @@ for (let i = 0; i < MAX_PAGES; i++) {
 
   results.push(response);
 
-  totalJavaScriptPages = Math.ceil(response.total_count / 30);
+  totalJavaScriptPages = Math.min(Math.ceil(response.total_count / 30), MAX_PAGES);
 
   if (results.length === response.total_count) {
     break;
@@ -169,7 +169,7 @@ for (let i = 0; i < MAX_PAGES; i++) {
 
   results.push(response);
 
-  totalTypeScriptPages = Math.ceil(response.total_count / 30);
+  totalTypeScriptPages = Math.min(Math.ceil(response.total_count / 30), MAX_PAGES);
 
   if (results.length === response.total_count) {
     break;
