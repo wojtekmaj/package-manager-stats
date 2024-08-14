@@ -249,12 +249,7 @@ async function checkIfFileExists(
     },
   );
 
-  if (response.ok) {
-    log(chalk.gray`  Found %s`, filename);
-    fileExistsStats[url] = true;
-    fs.writeFileSync(fileExistsStatsPath, JSON.stringify(fileExistsStats));
-    return true;
-  } else {
+  if (!response.ok) {
     if (response.status === 404) {
       log(chalk.gray`  No %s found`, filename);
       fileExistsStats[url] = false;
@@ -264,6 +259,11 @@ async function checkIfFileExists(
 
     throw new NetworkError(response.status, response.statusText);
   }
+
+  log(chalk.gray`  Found %s`, filename);
+  fileExistsStats[url] = true;
+  fs.writeFileSync(fileExistsStatsPath, JSON.stringify(fileExistsStats));
+  return true;
 }
 
 /**
@@ -276,7 +276,7 @@ async function checkIfFileExists(
  * Check for bun.lockb. If present, count as bun.
  */
 await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (result, index) => {
-  log(chalk.bold(result.name) + ' ' + chalk.gray`(%s/%s)`, index + 1, flattenedResults.length);
+  log(`${chalk.bold(result.name)} ${chalk.gray`(%s/%s)`}`, index + 1, flattenedResults.length);
 
   const branch = result.default_branch;
 
@@ -290,7 +290,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   stats.nodejs++;
 
-  let rawPackageJson;
+  let rawPackageJson: string;
   try {
     rawPackageJson = await fetchWithCache(
       `https://raw.githubusercontent.com/${result.name}/${branch}/package.json`,
@@ -304,65 +304,67 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     throw error;
   }
 
-  let packageJson;
+  // biome-ignore lint/suspicious/noExplicitAny: No capacity to type packageJson
+  let packageJson: Record<string, any> | undefined;
   try {
     packageJson = JSON.parse(rawPackageJson);
-  } catch (error) {
+  } catch {
     log(chalk.red`  Invalid package.json`);
   }
 
   if (packageJson) {
-    if ('packageManager' in packageJson) {
-      log(chalk.gray`    Found packageManager`);
-      stats.uses_corepack++;
-
-      const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
-
-      if (packageJson.packageManager.match(/npm/i)) {
-        log(chalk.green`  npm detected`);
-        packageManagerStats.npm++;
-        const npmStats: Record<string, number> = packageManagerVersionStats.npm;
-        npmStats[version] = (npmStats[version] ?? 0) + 1;
-        return;
-      }
-
-      if (packageJson.packageManager.match(/yarn@1/i)) {
-        log(chalk.green`  Yarn Classic detected`);
-        packageManagerStats.yarn_classic++;
-        const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
-        yarnClassicStats[version] = (yarnClassicStats[version] ?? 0) + 1;
-        return;
-      }
-
-      if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
-        log(chalk.green`  Yarn Modern detected`);
-        packageManagerStats.yarn_modern++;
-        const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
-        yarnModernStats[version] = (yarnModernStats[version] ?? 0) + 1;
-        return;
-      }
-
-      if (packageJson.packageManager.match(/pnpm/i)) {
-        log(chalk.green`  pnpm detected`);
-        packageManagerStats.pnpm++;
-        const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
-        pnpmStats[version] = (pnpmStats[version] ?? 0) + 1;
-        return;
-      }
-
-      if (packageJson.packageManager.match(/bun/i)) {
-        log(chalk.green`  bun detected`);
-        packageManagerStats.bun++;
-        const bunStats: Record<string, number> = packageManagerVersionStats.bun;
-        bunStats[version] = (bunStats[version] ?? 0) + 1;
-        return;
-      }
-
-      throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
-    } else {
+    if (!('packageManager' in packageJson)) {
       log(chalk.gray`    No packageManager found`);
       stats.does_not_use_corepack++;
+      return;
     }
+
+    log(chalk.gray`    Found packageManager`);
+    stats.uses_corepack++;
+
+    const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
+
+    if (packageJson.packageManager.match(/npm/i)) {
+      log(chalk.green`  npm detected`);
+      packageManagerStats.npm++;
+      const npmStats: Record<string, number> = packageManagerVersionStats.npm;
+      npmStats[version] = (npmStats[version] ?? 0) + 1;
+      return;
+    }
+
+    if (packageJson.packageManager.match(/yarn@1/i)) {
+      log(chalk.green`  Yarn Classic detected`);
+      packageManagerStats.yarn_classic++;
+      const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
+      yarnClassicStats[version] = (yarnClassicStats[version] ?? 0) + 1;
+      return;
+    }
+
+    if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
+      log(chalk.green`  Yarn Modern detected`);
+      packageManagerStats.yarn_modern++;
+      const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
+      yarnModernStats[version] = (yarnModernStats[version] ?? 0) + 1;
+      return;
+    }
+
+    if (packageJson.packageManager.match(/pnpm/i)) {
+      log(chalk.green`  pnpm detected`);
+      packageManagerStats.pnpm++;
+      const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
+      pnpmStats[version] = (pnpmStats[version] ?? 0) + 1;
+      return;
+    }
+
+    if (packageJson.packageManager.match(/bun/i)) {
+      log(chalk.green`  bun detected`);
+      packageManagerStats.bun++;
+      const bunStats: Record<string, number> = packageManagerVersionStats.bun;
+      bunStats[version] = (bunStats[version] ?? 0) + 1;
+      return;
+    }
+
+    throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
   }
 
   const packageLockJsonExists = await checkIfFileExists(result.name, branch, 'package-lock.json');
@@ -398,31 +400,31 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       log(chalk.green`  Yarn Modern detected`);
       packageManagerStats.yarn_modern++;
       return;
-    } else {
-      let yarnLock;
-      try {
-        yarnLock = await fetchWithCache(
-          `https://raw.githubusercontent.com/${result.name}/${branch}/yarn.lock`,
-        );
-      } catch (error) {
-        if (error instanceof NetworkError && error.status === 404) {
-          log(chalk.gray`  No yarn.lock found`);
-          return;
-        }
-
-        throw error;
-      }
-
-      if (yarnLock.match(/# yarn lockfile v1/i)) {
-        log(chalk.green`  Yarn Classic detected`);
-        packageManagerStats.yarn_classic++;
-        return;
-      } else {
-        log(chalk.green`  Yarn Modern detected`);
-        packageManagerStats.yarn_modern++;
-        return;
-      }
     }
+
+    let yarnLock: string;
+    try {
+      yarnLock = await fetchWithCache(
+        `https://raw.githubusercontent.com/${result.name}/${branch}/yarn.lock`,
+      );
+    } catch (error) {
+      if (error instanceof NetworkError && error.status === 404) {
+        log(chalk.gray`  No yarn.lock found`);
+        return;
+      }
+
+      throw error;
+    }
+
+    if (yarnLock.match(/# yarn lockfile v1/i)) {
+      log(chalk.green`  Yarn Classic detected`);
+      packageManagerStats.yarn_classic++;
+      return;
+    }
+
+    log(chalk.green`  Yarn Modern detected`);
+    packageManagerStats.yarn_modern++;
+    return;
   }
 
   const pnpmLockYamlExists = await checkIfFileExists(result.name, branch, 'pnpm-lock.yaml');
@@ -515,17 +517,17 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
 const ymd = new Date().toISOString().slice(0, 10);
 
-fs.writeFileSync(`results/${ymd}-stats.json`, JSON.stringify(stats, null, 2) + '\n');
+fs.writeFileSync(`results/${ymd}-stats.json`, `${JSON.stringify(stats, null, 2)}\n`);
 info(stats);
 
 fs.writeFileSync(
   `results/${ymd}-package-manager-stats.json`,
-  JSON.stringify(packageManagerStats, null, 2) + '\n',
+  `${JSON.stringify(packageManagerStats, null, 2)}\n`,
 );
 info(packageManagerStats);
 
 fs.writeFileSync(
   `results/${ymd}-package-manager-version-stats.json`,
-  JSON.stringify(packageManagerVersionStats, null, 2) + '\n',
+  `${JSON.stringify(packageManagerVersionStats, null, 2)}\n`,
 );
 info(packageManagerVersionStats);
