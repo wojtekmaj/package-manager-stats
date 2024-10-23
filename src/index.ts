@@ -313,58 +313,57 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   }
 
   if (packageJson) {
-    if (!('packageManager' in packageJson)) {
-      log(chalk.gray`    No packageManager found`);
-      stats.does_not_use_corepack++;
-      return;
+    if ('packageManager' in packageJson) {
+      log(chalk.gray`    Found packageManager`);
+      stats.uses_corepack++;
+
+      const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
+
+      if (packageJson.packageManager.match(/npm/i)) {
+        log(chalk.green`  npm detected`);
+        packageManagerStats.npm++;
+        const npmStats: Record<string, number> = packageManagerVersionStats.npm;
+        npmStats[version] = (npmStats[version] ?? 0) + 1;
+        return;
+      }
+
+      if (packageJson.packageManager.match(/yarn@1/i)) {
+        log(chalk.green`  Yarn Classic detected`);
+        packageManagerStats.yarn_classic++;
+        const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
+        yarnClassicStats[version] = (yarnClassicStats[version] ?? 0) + 1;
+        return;
+      }
+
+      if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
+        log(chalk.green`  Yarn Modern detected`);
+        packageManagerStats.yarn_modern++;
+        const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
+        yarnModernStats[version] = (yarnModernStats[version] ?? 0) + 1;
+        return;
+      }
+
+      if (packageJson.packageManager.match(/pnpm/i)) {
+        log(chalk.green`  pnpm detected`);
+        packageManagerStats.pnpm++;
+        const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
+        pnpmStats[version] = (pnpmStats[version] ?? 0) + 1;
+        return;
+      }
+
+      if (packageJson.packageManager.match(/bun/i)) {
+        log(chalk.green`  bun detected`);
+        packageManagerStats.bun++;
+        const bunStats: Record<string, number> = packageManagerVersionStats.bun;
+        bunStats[version] = (bunStats[version] ?? 0) + 1;
+        return;
+      }
+
+      throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
     }
 
-    log(chalk.gray`    Found packageManager`);
-    stats.uses_corepack++;
-
-    const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
-
-    if (packageJson.packageManager.match(/npm/i)) {
-      log(chalk.green`  npm detected`);
-      packageManagerStats.npm++;
-      const npmStats: Record<string, number> = packageManagerVersionStats.npm;
-      npmStats[version] = (npmStats[version] ?? 0) + 1;
-      return;
-    }
-
-    if (packageJson.packageManager.match(/yarn@1/i)) {
-      log(chalk.green`  Yarn Classic detected`);
-      packageManagerStats.yarn_classic++;
-      const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
-      yarnClassicStats[version] = (yarnClassicStats[version] ?? 0) + 1;
-      return;
-    }
-
-    if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
-      log(chalk.green`  Yarn Modern detected`);
-      packageManagerStats.yarn_modern++;
-      const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
-      yarnModernStats[version] = (yarnModernStats[version] ?? 0) + 1;
-      return;
-    }
-
-    if (packageJson.packageManager.match(/pnpm/i)) {
-      log(chalk.green`  pnpm detected`);
-      packageManagerStats.pnpm++;
-      const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
-      pnpmStats[version] = (pnpmStats[version] ?? 0) + 1;
-      return;
-    }
-
-    if (packageJson.packageManager.match(/bun/i)) {
-      log(chalk.green`  bun detected`);
-      packageManagerStats.bun++;
-      const bunStats: Record<string, number> = packageManagerVersionStats.bun;
-      bunStats[version] = (bunStats[version] ?? 0) + 1;
-      return;
-    }
-
-    throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
+    log(chalk.gray`    No packageManager found`);
+    stats.does_not_use_corepack++;
   }
 
   const packageLockJsonExists = await checkIfFileExists(result.name, branch, 'package-lock.json');
