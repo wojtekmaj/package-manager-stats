@@ -1,6 +1,6 @@
 import fs from 'node:fs';
+import { styleText } from 'node:util';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
-import chalk from 'chalk';
 import semver from 'semver';
 import pRetry from 'p-retry';
 
@@ -65,7 +65,7 @@ class NetworkError extends Error {
  * will return the cached version if it exists.
  */
 async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<string> {
-  // log(chalk.gray`Getting %s…`, input);
+  // log(styleText('gray', `Getting ${input}…`));
 
   const cacheKey = input
     .toString()
@@ -76,14 +76,14 @@ async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<
 
   // If the cache exists, return it
   if (cacheExists) {
-    // log(chalk.gray`  Retrieving from cache`);
+    // log(styleText('gray', `  Retrieving from cache`));
     const cachedFile = fs.readFileSync(cachePath, 'utf-8');
 
     return cachedFile;
   }
 
   // Otherwise, fetch the URL
-  // log(chalk.gray`  Fetching from network`, input);
+  // log(styleText('gray', `  Fetching from network ${input}`));
   const response = await pRetry(() =>
     fetch(input, init).then((response) => {
       if (!response.ok) {
@@ -117,9 +117,9 @@ for (let i = 0; i < MAX_PAGES; i++) {
       break;
     }
 
-    log(chalk.gray`Fetching JavaScript page %s/%s…`, currentPage, totalJavaScriptPages);
+    log(styleText('gray', `Fetching JavaScript page ${currentPage}/${totalJavaScriptPages}…`));
   } else {
-    log(chalk.gray`Fetching JavaScript page %s…`, currentPage);
+    log(styleText('gray', `Fetching JavaScript page ${currentPage}…`));
   }
 
   const url = new URL(`${GITHUB_API_URL}/search/repositories`);
@@ -154,9 +154,9 @@ for (let i = 0; i < MAX_PAGES; i++) {
       break;
     }
 
-    log(chalk.gray`Fetching TypeScript page %s/%s…`, currentPage, totalTypeScriptPages);
+    log(styleText('gray', `Fetching TypeScript page ${currentPage}/${totalTypeScriptPages}…`));
   } else {
-    log(chalk.gray`Fetching TypeScript page %s…`, currentPage);
+    log(styleText('gray', `Fetching TypeScript page ${currentPage}…`));
   }
 
   const url = new URL(`${GITHUB_API_URL}/search/repositories`);
@@ -233,9 +233,9 @@ async function checkIfFileExists(
 
     if (typeof result === 'boolean') {
       if (result) {
-        log(chalk.gray`  Found %s`, filename);
+        log(styleText('gray', `  Found ${filename}`));
       } else {
-        log(chalk.gray`  No %s found`, filename);
+        log(styleText('gray', `  No ${filename} found`));
       }
 
       return result;
@@ -251,7 +251,7 @@ async function checkIfFileExists(
 
   if (!response.ok) {
     if (response.status === 404) {
-      log(chalk.gray`  No %s found`, filename);
+      log(styleText('gray', `  No ${filename} found`));
       fileExistsStats[url] = false;
       fs.writeFileSync(fileExistsStatsPath, JSON.stringify(fileExistsStats));
       return false;
@@ -260,7 +260,7 @@ async function checkIfFileExists(
     throw new NetworkError(response.status, response.statusText);
   }
 
-  log(chalk.gray`  Found %s`, filename);
+  log(styleText('gray', `  Found ${filename}`));
   fileExistsStats[url] = true;
   fs.writeFileSync(fileExistsStatsPath, JSON.stringify(fileExistsStats));
   return true;
@@ -276,14 +276,16 @@ async function checkIfFileExists(
  * Check for bun.lockb. If present, count as bun.
  */
 await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (result, index) => {
-  log(`${chalk.bold(result.name)} ${chalk.gray`(%s/%s)`}`, index + 1, flattenedResults.length);
+  log(
+    `${styleText('bold', result.name)} ${styleText('gray', `(${index + 1}/${flattenedResults.length})`)}`,
+  );
 
   const branch = result.default_branch;
 
   const packageJsonExists = await checkIfFileExists(result.name, branch, 'package.json');
 
   if (!packageJsonExists) {
-    log(chalk.white`  Non-Node.js project`);
+    log(styleText('white', '  Non-Node.js project'));
     stats.non_nodejs++;
     return;
   }
@@ -297,7 +299,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     );
   } catch (error) {
     if (error instanceof NetworkError && error.status === 404) {
-      log(chalk.gray`  No package.json found`);
+      log(styleText('gray', '  No package.json found'));
       return;
     }
 
@@ -309,18 +311,18 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   try {
     packageJson = JSON.parse(rawPackageJson);
   } catch {
-    log(chalk.red`  Invalid package.json`);
+    log(styleText('red', '  Invalid package.json'));
   }
 
   if (packageJson) {
     if ('packageManager' in packageJson) {
-      log(chalk.gray`    Found packageManager`);
+      log(styleText('gray', '    Found packageManager'));
       stats.uses_corepack++;
 
       const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
 
       if (packageJson.packageManager.match(/npm/i)) {
-        log(chalk.green`  npm detected`);
+        log(styleText('green', '  npm detected'));
         packageManagerStats.npm++;
         const npmStats: Record<string, number> = packageManagerVersionStats.npm;
         npmStats[version] = (npmStats[version] ?? 0) + 1;
@@ -328,7 +330,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       }
 
       if (packageJson.packageManager.match(/yarn@1/i)) {
-        log(chalk.green`  Yarn Classic detected`);
+        log(styleText('green', '  Yarn Classic detected'));
         packageManagerStats.yarn_classic++;
         const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
         yarnClassicStats[version] = (yarnClassicStats[version] ?? 0) + 1;
@@ -336,7 +338,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       }
 
       if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
-        log(chalk.green`  Yarn Modern detected`);
+        log(styleText('green', '  Yarn Modern detected'));
         packageManagerStats.yarn_modern++;
         const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
         yarnModernStats[version] = (yarnModernStats[version] ?? 0) + 1;
@@ -344,7 +346,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       }
 
       if (packageJson.packageManager.match(/pnpm/i)) {
-        log(chalk.green`  pnpm detected`);
+        log(styleText('green', '  pnpm detected'));
         packageManagerStats.pnpm++;
         const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
         pnpmStats[version] = (pnpmStats[version] ?? 0) + 1;
@@ -352,7 +354,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       }
 
       if (packageJson.packageManager.match(/bun/i)) {
-        log(chalk.green`  bun detected`);
+        log(styleText('green', '  bun detected'));
         packageManagerStats.bun++;
         const bunStats: Record<string, number> = packageManagerVersionStats.bun;
         bunStats[version] = (bunStats[version] ?? 0) + 1;
@@ -362,14 +364,14 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
     }
 
-    log(chalk.gray`    No packageManager found`);
+    log(styleText('gray', '    No packageManager found'));
     stats.does_not_use_corepack++;
   }
 
   const packageLockJsonExists = await checkIfFileExists(result.name, branch, 'package-lock.json');
 
   if (packageLockJsonExists) {
-    log(chalk.green`  npm detected`);
+    log(styleText('green', '  npm detected'));
     packageManagerStats.npm++;
     stats.has_lockfile++;
     return;
@@ -382,7 +384,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   );
 
   if (npmShrinkwrapJsonExists) {
-    log(chalk.green`  npm detected`);
+    log(styleText('green', '  npm detected'));
     packageManagerStats.npm++;
     stats.has_lockfile++;
     return;
@@ -396,7 +398,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     const yarnrcYmlExists = await checkIfFileExists(result.name, branch, '.yarnrc.yml');
 
     if (yarnrcYmlExists) {
-      log(chalk.green`  Yarn Modern detected`);
+      log(styleText('green', '  Yarn Modern detected'));
       packageManagerStats.yarn_modern++;
       return;
     }
@@ -408,7 +410,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       );
     } catch (error) {
       if (error instanceof NetworkError && error.status === 404) {
-        log(chalk.gray`  No yarn.lock found`);
+        log(styleText('gray', '  No yarn.lock found'));
         return;
       }
 
@@ -416,12 +418,12 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     }
 
     if (yarnLock.match(/# yarn lockfile v1/i)) {
-      log(chalk.green`  Yarn Classic detected`);
+      log(styleText('green', '  Yarn Classic detected'));
       packageManagerStats.yarn_classic++;
       return;
     }
 
-    log(chalk.green`  Yarn Modern detected`);
+    log(styleText('green', '  Yarn Modern detected'));
     packageManagerStats.yarn_modern++;
     return;
   }
@@ -429,7 +431,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   const pnpmLockYamlExists = await checkIfFileExists(result.name, branch, 'pnpm-lock.yaml');
 
   if (pnpmLockYamlExists) {
-    log(chalk.green`  pnpm detected`);
+    log(styleText('green', '  pnpm detected'));
     packageManagerStats.pnpm++;
     stats.has_lockfile++;
     return;
@@ -438,7 +440,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   const bunLockbExists = await checkIfFileExists(result.name, branch, 'bun.lockb');
 
   if (bunLockbExists) {
-    log(chalk.green`  bun detected`);
+    log(styleText('green', '  bun detected'));
     packageManagerStats.bun++;
     stats.has_lockfile++;
     return;
@@ -449,25 +451,25 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   // Check for package manager in scripts
   if (rawPackageJson) {
     if (rawPackageJson.match(/npm run/i)) {
-      log(chalk.green`  npm detected`);
+      log(styleText('green', '  npm detected'));
       packageManagerStats.npm++;
       return;
     }
 
     if (rawPackageJson.match(/yarn run/i)) {
-      log(chalk.red`  Yarn detected, but not sure which version`);
+      log(styleText('red', '  Yarn detected, but not sure which version'));
       packageManagerStats.unknown++;
       return;
     }
 
     if (rawPackageJson.match(/pnpm run/i)) {
-      log(chalk.green`  pnpm detected`);
+      log(styleText('green', '  pnpm detected'));
       packageManagerStats.pnpm++;
       return;
     }
 
     if (rawPackageJson.match(/bun run/i)) {
-      log(chalk.green`  bun detected`);
+      log(styleText('green', '  bun detected'));
       packageManagerStats.bun++;
       return;
     }
@@ -486,31 +488,31 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     );
 
     if (contributingMd.match(/npm i/i)) {
-      log(chalk.green`  npm detected`);
+      log(styleText('green', '  npm detected'));
       packageManagerStats.npm++;
       return;
     }
 
     if (contributingMd.match(/yarn add/i)) {
-      log(chalk.red`  Yarn detected, but not sure which version`);
+      log(styleText('red', '  Yarn detected, but not sure which version'));
       packageManagerStats.unknown++;
       return;
     }
 
     if (contributingMd.match(/pnpm i/i)) {
-      log(chalk.green`  pnpm detected`);
+      log(styleText('green', '  pnpm detected'));
       packageManagerStats.pnpm++;
       return;
     }
 
     if (contributingMd.match(/bun i/i)) {
-      log(chalk.green`  bun detected`);
+      log(styleText('green', '  bun detected'));
       packageManagerStats.bun++;
       return;
     }
   }
 
-  log(chalk.red`  No package manager detected`);
+  log(styleText('red', '  No package manager detected'));
   packageManagerStats.unknown++;
 });
 
