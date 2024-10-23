@@ -3,6 +3,7 @@ import { styleText } from 'node:util';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
 import semver from 'semver';
 import pRetry from 'p-retry';
+import { parse as parseYaml } from 'yaml';
 
 const CACHE_DIR = '.cache';
 const GITHUB_API_URL = 'https://api.github.com';
@@ -374,6 +375,40 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     log(styleText('green', '  npm detected'));
     packageManagerStats.npm++;
     stats.has_lockfile++;
+
+    let packageLockJson: string;
+    try {
+      packageLockJson = await fetchWithCache(
+        `https://raw.githubusercontent.com/${result.name}/${branch}/package-lock.json`,
+      );
+    } catch (error) {
+      if (error instanceof NetworkError && error.status === 404) {
+        log(styleText('gray', '  No package-lock.json found'));
+        return;
+      }
+
+      throw error;
+    }
+
+    const packageLockJsonVersion = JSON.parse(packageLockJson).lockfileVersion;
+
+    if (!packageLockJsonVersion) {
+      const npmStats: Record<string, number> = packageManagerVersionStats.npm;
+      npmStats.unknown = (npmStats.unknown ?? 0) + 1;
+      return;
+    }
+
+    // https://docs.npmjs.com/cli/v9/configuring-npm/package-lock-json#lockfileversion
+    const lockfileVersionToNpmVersionMap: Record<string, string> = {
+      '1': '5_or_6', // ^5.0.0 || ^6.0.0
+      '2': '7_or_8', // ^7.0.0 || ^8.0.0
+      '3': '9_or_10', // ^9.0.0 || ^10.0.0
+    };
+
+    const npmVersion = lockfileVersionToNpmVersionMap[packageLockJsonVersion] ?? 'unknown';
+
+    const npmStats: Record<string, number> = packageManagerVersionStats.npm;
+    npmStats[npmVersion] = (npmStats[npmVersion] ?? 0) + 1;
     return;
   }
 
@@ -386,6 +421,8 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   if (npmShrinkwrapJsonExists) {
     log(styleText('green', '  npm detected'));
     packageManagerStats.npm++;
+    const npmStats: Record<string, number> = packageManagerVersionStats.npm;
+    npmStats.unknown = (npmStats.unknown ?? 0) + 1;
     stats.has_lockfile++;
     return;
   }
@@ -394,14 +431,6 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   if (yarnLockExists) {
     stats.has_lockfile++;
-
-    const yarnrcYmlExists = await checkIfFileExists(result.name, branch, '.yarnrc.yml');
-
-    if (yarnrcYmlExists) {
-      log(styleText('green', '  Yarn Modern detected'));
-      packageManagerStats.yarn_modern++;
-      return;
-    }
 
     let yarnLock: string;
     try {
@@ -420,11 +449,35 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     if (yarnLock.match(/# yarn lockfile v1/i)) {
       log(styleText('green', '  Yarn Classic detected'));
       packageManagerStats.yarn_classic++;
+      const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
+      yarnClassicStats['1'] = (yarnClassicStats['1'] ?? 0) + 1;
       return;
     }
 
     log(styleText('green', '  Yarn Modern detected'));
     packageManagerStats.yarn_modern++;
+
+    const firstTenLinesOfYarnLock = yarnLock.split('\n').slice(0, 10).join('\n');
+    const lockfileVersion = parseYaml(firstTenLinesOfYarnLock).__metadata.version;
+
+    if (!lockfileVersion) {
+      const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
+      yarnModernStats.unknown = (yarnModernStats.unknown ?? 0) + 1;
+      return;
+    }
+
+    // https://github.com/yarnpkg/berry/blob/master/packages/yarnpkg-core/sources/Project.ts
+    const lockfileVersionToYarnVersionMap: Record<string, string> = {
+      '4': '3', // ^3.0.0
+      '5': '3', // ^3.1.0
+      '6': '3', // ^3.2.0
+      '8': '4',
+    };
+
+    const yarnVersion = lockfileVersionToYarnVersionMap[lockfileVersion] ?? 'unknown';
+
+    const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
+    yarnModernStats[yarnVersion] = (yarnModernStats[yarnVersion] ?? 0) + 1;
     return;
   }
 
@@ -434,6 +487,47 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     log(styleText('green', '  pnpm detected'));
     packageManagerStats.pnpm++;
     stats.has_lockfile++;
+
+    let pnpmLockYaml: string;
+    try {
+      pnpmLockYaml = await fetchWithCache(
+        `https://raw.githubusercontent.com/${result.name}/${branch}/pnpm-lock.yaml`,
+      );
+    } catch (error) {
+      if (error instanceof NetworkError && error.status === 404) {
+        log(styleText('gray', '  No pnpm-lock.yaml found'));
+        return;
+      }
+
+      throw error;
+    }
+
+    const firstLineOfPnpmLockYaml = pnpmLockYaml.split('\n')[0] || '';
+    const lockfileVersion = parseYaml(firstLineOfPnpmLockYaml).lockfileVersion;
+
+    if (!lockfileVersion) {
+      const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
+      pnpmStats.unknown = (pnpmStats.unknown ?? 0) + 1;
+      return;
+    }
+
+    // https://github.com/pnpm/pnpm/blob/main/packages/constants/src/index.ts
+    const lockfileVersionToPnpmVersionMap: Record<string, string> = {
+      '5': '3', // ^3.0.0
+      '5.1': '3_or_4_or_5', // ^3.5.0 || ^4.0.0 || ^5.0.0
+      '5.2': '5', // ^5.10.0
+      '5.3': '6',
+      '5.4': '7',
+      '6.0': '8', // Opt-in in ^7.24.0, default in ^8.0.0 - assuming ^8.0.0
+      '6.1': '9', // v9.0.0-alpha.5
+      '7.0': '9', // v9.0.0-alpha.5
+      '9.0': '9',
+    };
+
+    const pnpmVersion = lockfileVersionToPnpmVersionMap[lockfileVersion] ?? 'unknown';
+
+    const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
+    pnpmStats[pnpmVersion] = (pnpmStats[pnpmVersion] ?? 0) + 1;
     return;
   }
 
@@ -442,6 +536,10 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   if (bunLockbExists) {
     log(styleText('green', '  bun detected'));
     packageManagerStats.bun++;
+    const bunStats: Record<string, number> = packageManagerVersionStats.bun;
+    // There's no v2 yet - it MUST be v1
+    // bunStats.unknown = (bunStats.unknown ?? 0) + 1;
+    bunStats['1'] = (bunStats['1'] ?? 0) + 1;
     stats.has_lockfile++;
     return;
   }
