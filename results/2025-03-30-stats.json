@@ -1,0 +1,9 @@
+{
+  "total": 2040,
+  "nodejs": 1823,
+  "non_nodejs": 217,
+  "uses_corepack": 400,
+  "does_not_use_corepack": 1423,
+  "has_lockfile": 1080,
+  "does_not_have_lockfile": 343
+}
