@@ -270,11 +270,13 @@ async function checkIfFileExists(
 /**
  * Check if packageManager is present in package.json. If present, count as whatever is specified.
  * Check for package-lock.json. If present, count as npm.
+ * Check for npm-shrinkwrap.json. If present, count as npm.
  * Check for yarn.lock, and…
  *   Check for .yarnrc.yml. If present, count as Yarn Modern.
  *   Check for "# yarn lockfile v1". If present, count as Yarn Classic. If not, count as Yarn Modern.
  * Check for pnpm-lock.yaml. If present, count as pnpm.
  * Check for bun.lockb. If present, count as bun.
+ * Check for bun.lock. If present, count as bun.
  */
 await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (result, index) => {
   log(
@@ -549,9 +551,11 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const bunLockbExists = await checkIfFileExists(result.name, branch, 'bun.lockb');
+  const bunLockbOrBunLockExists =
+    (await checkIfFileExists(result.name, branch, 'bun.lockb')) ||
+    (await checkIfFileExists(result.name, branch, 'bun.lock'));
 
-  if (bunLockbExists) {
+  if (bunLockbOrBunLockExists) {
     log(styleText('green', '  bun detected'));
     packageManagerStats.bun++;
     const bunStats: Record<string, number> = packageManagerVersionStats.bun;
