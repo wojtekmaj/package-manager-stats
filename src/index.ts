@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import { styleText } from 'node:util';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
 import pRetry from 'p-retry';
-import semver from 'semver';
 import { parse as parseYaml } from 'yaml';
 
 const CACHE_DIR = '.cache';
@@ -322,7 +321,14 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       log(styleText('gray', '    Found packageManager'));
       stats.uses_corepack++;
 
-      const version = semver.major(packageJson.packageManager.match(/@v?(([0-9]\.?){1,})/)?.[1]);
+      // Extract major version from packageManager string (e.g. "npm@7.20.0")
+      const versionMatch = packageJson.packageManager.match(/@v?(\d+)/);
+
+      if (!versionMatch) {
+        throw new Error(`packageManager version not recognized: ${packageJson.packageManager}`);
+      }
+
+      const version = Number(versionMatch[1]);
 
       if (packageJson.packageManager.match(/npm/i)) {
         log(styleText('green', '  npm detected'));

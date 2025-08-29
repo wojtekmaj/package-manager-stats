@@ -32,13 +32,11 @@
   "dependencies": {
     "@wojtekmaj/async-array-utils": "^2.0.0",
     "p-retry": "^7.0.0",
-    "semver": "^7.7.0",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.0.0",
     "@types/node": "^22.10.10",
-    "@types/semver": "^7.0.0",
     "husky": "^9.0.0",
     "typescript": "^5.9.2"
   },
