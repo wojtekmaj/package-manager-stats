@@ -390,7 +390,25 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       throw error;
     }
 
-    const packageLockJsonVersion = JSON.parse(packageLockJson).lockfileVersion;
+    let parsedPackageLockJson: Record<string, unknown>;
+    try {
+      parsedPackageLockJson = JSON.parse(packageLockJson);
+    } catch {
+      log(styleText('red', '  Invalid package-lock.json, attempting to partially parse'));
+
+      // Attempt to partially read package-lock.json by taking its first 5 lines, removing the last comma and adding "}"
+      const firstFiveLines = packageLockJson.split('\n').slice(0, 5).join('\n');
+      const lastCommaIndex = firstFiveLines.lastIndexOf(',');
+      const partialJson = `${firstFiveLines.slice(0, lastCommaIndex)}\n}`;
+
+      try {
+        parsedPackageLockJson = JSON.parse(partialJson);
+      } catch {
+        throw new Error(`Invalid package-lock.json: ${partialJson}`);
+      }
+    }
+
+    const packageLockJsonVersion = parsedPackageLockJson.lockfileVersion as string | undefined;
 
     if (!packageLockJsonVersion) {
       const npmStats: Record<string, number> = packageManagerVersionStats.npm;
