@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import { styleText } from 'node:util';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
-import semver from 'semver';
 import pRetry from 'p-retry';
+import semver from 'semver';
 import { parse as parseYaml } from 'yaml';
 
 const CACHE_DIR = '.cache';
@@ -108,7 +108,7 @@ async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<
 
 const results: SearchResultsPage[] = [];
 
-let totalJavaScriptPages: number | undefined = undefined;
+let totalJavaScriptPages: number | undefined;
 
 for (let i = 0; i < MAX_PAGES; i++) {
   const currentPage = i + 1;
@@ -145,7 +145,7 @@ for (let i = 0; i < MAX_PAGES; i++) {
   }
 }
 
-let totalTypeScriptPages: number | undefined = undefined;
+let totalTypeScriptPages: number | undefined;
 
 for (let i = 0; i < MAX_PAGES; i++) {
   const currentPage = i + 1;
