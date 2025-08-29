@@ -1,18 +1,18 @@
 {
   "compilerOptions": {
     "declaration": true,
-    "downlevelIteration": true,
     "esModuleInterop": true,
     "isolatedDeclarations": true,
     "isolatedModules": true,
-    "module": "preserve",
+    "module": "nodenext",
     "moduleDetection": "force",
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
     "outDir": "dist",
+    "skipLibCheck": true,
     "strict": true,
-    "target": "esnext",
+    "target": "es2022",
     "verbatimModuleSyntax": true
   },
-  "include": ["src"]
+  "exclude": ["dist"]
 }
