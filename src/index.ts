@@ -424,11 +424,11 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       return;
     }
 
-    // https://docs.npmjs.com/cli/v9/configuring-npm/package-lock-json#lockfileversion
+    // https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json#lockfileversion
     const lockfileVersionToNpmVersionMap: Record<string, string> = {
       '1': '5_or_6', // ^5.0.0 || ^6.0.0
       '2': '7_or_8', // ^7.0.0 || ^8.0.0
-      '3': '9_or_10', // ^9.0.0 || ^10.0.0
+      '3': '9_or_10_or_11', // ^9.0.0 || ^10.0.0
     };
 
     const npmVersion = lockfileVersionToNpmVersionMap[packageLockJsonVersion] ?? 'unknown';
@@ -547,7 +547,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       '6.0': '8', // Opt-in in ^7.24.0, default in ^8.0.0 - assuming ^8.0.0
       '6.1': '9', // v9.0.0-alpha.5
       '7.0': '9', // v9.0.0-alpha.5
-      '9.0': '9',
+      '9.0': '9_or_10',
     };
 
     const pnpmVersion = lockfileVersionToPnpmVersionMap[lockfileVersion] ?? 'unknown';
@@ -599,6 +599,16 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       packageManagerStats.bun++;
       return;
     }
+
+    /**
+     * npx is a tool to execute binaries from npm packages. If a project uses npx *and* does not use
+     * any other package manager, it's likely using npm.
+     */
+    if (rawPackageJson.match(/npx/i)) {
+      log(styleText('green', '  npm detected'));
+      packageManagerStats.npm++;
+      return;
+    }
   }
 
   // README.md intentionally omitted because it may contain installation instructions for
@@ -613,25 +623,61 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       `https://raw.githubusercontent.com/${result.name}/${branch}/CONTRIBUTING.md`,
     );
 
-    if (contributingMd.match(/npm i/i)) {
+    if (contributingMd.match(/npm (ci|install|run|test)/i)) {
       log(styleText('green', '  npm detected'));
       packageManagerStats.npm++;
       return;
     }
 
-    if (contributingMd.match(/yarn add/i)) {
+    if (contributingMd.match(/yarn/i)) {
       log(styleText('red', '  Yarn detected, but not sure which version'));
       packageManagerStats.unknown++;
       return;
     }
 
-    if (contributingMd.match(/pnpm i/i)) {
+    if (contributingMd.match(/pnpm (ci|install|run|test)/i)) {
       log(styleText('green', '  pnpm detected'));
       packageManagerStats.pnpm++;
       return;
     }
 
     if (contributingMd.match(/bun i/i)) {
+      log(styleText('green', '  bun detected'));
+      packageManagerStats.bun++;
+      return;
+    }
+  }
+
+  const githubWorkflowsCiYmlExists = await checkIfFileExists(
+    result.name,
+    branch,
+    '.github/workflows/ci.yml',
+  );
+
+  if (githubWorkflowsCiYmlExists) {
+    const githubWorkflowsCiYml = await fetchWithCache(
+      `https://raw.githubusercontent.com/${result.name}/${branch}/.github/workflows/ci.yml`,
+    );
+
+    if (githubWorkflowsCiYml.match(/npm (ci|install|run|test)/i)) {
+      log(styleText('green', '  npm detected'));
+      packageManagerStats.npm++;
+      return;
+    }
+
+    if (githubWorkflowsCiYml.match(/yarn/i)) {
+      log(styleText('red', '  Yarn detected, but not sure which version'));
+      packageManagerStats.unknown++;
+      return;
+    }
+
+    if (githubWorkflowsCiYml.match(/pnpm (ci|install|run|test)/i)) {
+      log(styleText('green', '  pnpm detected'));
+      packageManagerStats.pnpm++;
+      return;
+    }
+
+    if (githubWorkflowsCiYml.match(/bun i/i)) {
       log(styleText('green', '  bun detected'));
       packageManagerStats.bun++;
       return;
