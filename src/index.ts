@@ -1,185 +1,29 @@
 import fs from 'node:fs';
 import { styleText } from 'node:util';
 import { asyncForEach, asyncForEachStrict } from '@wojtekmaj/async-array-utils';
-import pRetry from 'p-retry';
 import { parse as parseYaml } from 'yaml';
 
-const CACHE_DIR = '.cache';
-const GITHUB_API_URL = 'https://api.github.com';
-// Default - most starred repositories, period
-const QUERY = 'stars:>1';
-// Alt 1 - repositories with 1000+ stars, created in the last year
-// const oneYearAgo = new Date();
-// oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-// oneYearAgo.setHours(0, 0, 0, 0);
-// const QUERY = `stars:>1000 created:>${oneYearAgo.toISOString().slice(0, 10)}`;
-// Alt 2 - repositories with 500+ stars, created in the last 6 months
-// const sixMonthsAgo = new Date();
-// sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-// sixMonthsAgo.setHours(0, 0, 0, 0);
-// const QUERY = `stars:>500 created:>${sixMonthsAgo.toISOString().slice(0, 10)}`;
-// Each GitHub search results page has 30 items, we can fetch 1000 results with 34 requests
-const MAX_PAGES = 34;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const DEBUG = process.env.DEBUG === 'true';
+import { DEBUG, GITHUB_TOKEN } from './env.ts';
+import { info, log } from './logger.ts';
+import { checkIfFileExists, fetchLanguagePages, fetchWithCache } from './utils.ts';
+
+import type { SearchResultsPage } from './types.ts';
 
 if (!GITHUB_TOKEN) {
   throw new Error('GITHUB_TOKEN environment variable must be set');
 }
 
-function log(...args: unknown[]) {
-  if (DEBUG) {
-    console.log(...args);
-  }
+function fetchJavaScriptPages(): Promise<SearchResultsPage[]> {
+  return fetchLanguagePages('JavaScript');
 }
 
-function info(...args: unknown[]) {
-  console.info(...args);
+function fetchTypeScriptPages(): Promise<SearchResultsPage[]> {
+  return fetchLanguagePages('TypeScript');
 }
 
-type SearchResult = {
-  full_name: string;
-  url: string;
-  html_url: string;
-  default_branch: string;
-  stargazers_count: number;
-};
+const [jsResults, tsResults] = await Promise.all([fetchJavaScriptPages(), fetchTypeScriptPages()]);
 
-type SearchResultsPage = {
-  total_count: number;
-  items: SearchResult[];
-};
-
-class NetworkError extends Error {
-  status: number;
-
-  constructor(status: number, statusText: string) {
-    super(statusText);
-    this.name = 'NetworkError';
-    this.status = status;
-  }
-}
-
-/**
- * Fetches a URL and caches it in the .cache directory. On subsequent calls, it
- * will return the cached version if it exists.
- */
-async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<string> {
-  // log(styleText('gray', `Getting ${input}…`));
-
-  const cacheKey = input
-    .toString()
-    .replace(/[^a-z0-9]/gi, '_')
-    .toLowerCase();
-  const cachePath = `${CACHE_DIR}/fetch/${cacheKey}`;
-  const cacheExists = fs.existsSync(cachePath);
-
-  // If the cache exists, return it
-  if (cacheExists) {
-    // log(styleText('gray', `  Retrieving from cache`));
-    const cachedFile = fs.readFileSync(cachePath, 'utf-8');
-
-    return cachedFile;
-  }
-
-  // Otherwise, fetch the URL
-  // log(styleText('gray', `  Fetching from network ${input}`));
-  const response = await pRetry(() =>
-    fetch(input, init).then((response) => {
-      if (!response.ok) {
-        throw new NetworkError(response.status, response.statusText);
-      }
-
-      return response;
-    }),
-  );
-
-  const requestText = await response.text();
-
-  // Ensure the cache directory exists
-  fs.mkdirSync(`${CACHE_DIR}/fetch`, { recursive: true });
-
-  // Write the response to the cache
-  fs.writeFileSync(cachePath, requestText);
-
-  return requestText;
-}
-
-const results: SearchResultsPage[] = [];
-
-let totalJavaScriptPages: number | undefined;
-
-for (let i = 0; i < MAX_PAGES; i++) {
-  const currentPage = i + 1;
-
-  if (totalJavaScriptPages) {
-    if (currentPage > totalJavaScriptPages) {
-      break;
-    }
-
-    log(styleText('gray', `Fetching JavaScript page ${currentPage}/${totalJavaScriptPages}…`));
-  } else {
-    log(styleText('gray', `Fetching JavaScript page ${currentPage}…`));
-  }
-
-  const url = new URL(`${GITHUB_API_URL}/search/repositories`);
-  url.searchParams.set('q', `${QUERY} language:JavaScript`);
-  url.searchParams.set('sort', 'stars');
-  url.searchParams.set('page', currentPage.toString());
-
-  const rawResponse = await fetchWithCache(url, {
-    headers: {
-      Authorization: `token ${process.env.GITHUB_TOKEN}`,
-    },
-  });
-
-  const response = JSON.parse(rawResponse) as SearchResultsPage;
-
-  results.push(response);
-
-  totalJavaScriptPages = Math.min(Math.ceil(response.total_count / 30), MAX_PAGES);
-
-  if (results.length === response.total_count) {
-    break;
-  }
-}
-
-let totalTypeScriptPages: number | undefined;
-
-for (let i = 0; i < MAX_PAGES; i++) {
-  const currentPage = i + 1;
-
-  if (totalTypeScriptPages) {
-    if (currentPage > totalTypeScriptPages) {
-      break;
-    }
-
-    log(styleText('gray', `Fetching TypeScript page ${currentPage}/${totalTypeScriptPages}…`));
-  } else {
-    log(styleText('gray', `Fetching TypeScript page ${currentPage}…`));
-  }
-
-  const url = new URL(`${GITHUB_API_URL}/search/repositories`);
-  url.searchParams.set('q', `${QUERY} language:TypeScript`);
-  url.searchParams.set('sort', 'stars');
-  url.searchParams.set('page', currentPage.toString());
-
-  const rawResponse = await fetchWithCache(url, {
-    headers: {
-      Authorization: `token ${process.env.GITHUB_TOKEN}`,
-    },
-  });
-
-  const response = JSON.parse(rawResponse) as SearchResultsPage;
-
-  results.push(response);
-
-  totalTypeScriptPages = Math.min(Math.ceil(response.total_count / 30), MAX_PAGES);
-
-  if (results.length === response.total_count) {
-    break;
-  }
-}
+const results = [...jsResults, ...tsResults];
 
 const flattenedResults = results
   .flatMap((page) => page.items)
@@ -216,55 +60,13 @@ const packageManagerVersionStats = {
   bun: {},
 };
 
-const fileExistsStatsPath = `${CACHE_DIR}/file-exists-stats.json`;
-const fileExistsStats: Record<string, boolean> = fs.existsSync(fileExistsStatsPath)
-  ? (JSON.parse(fs.readFileSync(fileExistsStatsPath, 'utf-8')) as Record<string, boolean>)
-  : {};
-
-async function checkIfFileExists(
-  resultName: string,
-  branch: string,
-  filename: string,
-): Promise<boolean> {
-  const url = `https://raw.githubusercontent.com/${resultName}/${branch}/${filename}`;
-
-  if (url in fileExistsStats) {
-    const result = fileExistsStats[url];
-
-    if (typeof result === 'boolean') {
-      if (result) {
-        log(styleText('gray', `  Found ${filename}`));
-      } else {
-        log(styleText('gray', `  No ${filename} found`));
-      }
-
-      return result;
-    }
-  }
-
-  const response = await fetch(
-    `https://raw.githubusercontent.com/${resultName}/${branch}/${filename}`,
-    {
-      method: 'HEAD',
-    },
-  );
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      log(styleText('gray', `  No ${filename} found`));
-      fileExistsStats[url] = false;
-      fs.writeFileSync(fileExistsStatsPath, JSON.stringify(fileExistsStats));
-      return false;
-    }
-
-    throw new NetworkError(response.status, response.statusText);
-  }
-
-  log(styleText('gray', `  Found ${filename}`));
-  fileExistsStats[url] = true;
-  fs.writeFileSync(fileExistsStatsPath, JSON.stringify(fileExistsStats));
-  return true;
-}
+const regexes = {
+  npm: /npm (ci|install|run|test)/i,
+  // Yarn allows installing by executing "yarn" and running scripts by executing "yarn <script>"
+  yarn: /yarn/i,
+  pnpm: /pnpm (install|run|test)/i,
+  bun: /bun (install|run|test)/i,
+};
 
 /**
  * Check if packageManager is present in package.json. If present, count as whatever is specified.
@@ -284,7 +86,15 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   const branch = result.default_branch;
 
-  const packageJsonExists = await checkIfFileExists(result.name, branch, 'package.json');
+  function fetchWithCacheInRepo(path: string) {
+    return fetchWithCache(`https://raw.githubusercontent.com/${result.name}/${branch}/${path}`);
+  }
+
+  function checkIfFileExistsInRepo(path: string) {
+    return checkIfFileExists(`https://raw.githubusercontent.com/${result.name}/${branch}/${path}`);
+  }
+
+  const packageJsonExists = await checkIfFileExistsInRepo('package.json');
 
   if (!packageJsonExists) {
     log(styleText('white', '  Non-Node.js project'));
@@ -294,19 +104,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   stats.nodejs++;
 
-  let rawPackageJson: string;
-  try {
-    rawPackageJson = await fetchWithCache(
-      `https://raw.githubusercontent.com/${result.name}/${branch}/package.json`,
-    );
-  } catch (error) {
-    if (error instanceof NetworkError && error.status === 404) {
-      log(styleText('gray', '  No package.json found'));
-      return;
-    }
-
-    throw error;
-  }
+  const rawPackageJson = await fetchWithCacheInRepo('package.json');
 
   // biome-ignore lint/suspicious/noExplicitAny: No capacity to type packageJson
   let packageJson: Record<string, any> | undefined;
@@ -317,7 +115,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   }
 
   if (packageJson) {
-    if ('packageManager' in packageJson) {
+    if (packageJson.packageManager) {
       log(styleText('gray', '    Found packageManager'));
       stats.uses_corepack++;
 
@@ -377,26 +175,14 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     stats.does_not_use_corepack++;
   }
 
-  const packageLockJsonExists = await checkIfFileExists(result.name, branch, 'package-lock.json');
+  const packageLockJsonExists = await checkIfFileExistsInRepo('package-lock.json');
 
   if (packageLockJsonExists) {
     log(styleText('green', '  npm detected'));
     packageManagerStats.npm++;
     stats.has_lockfile++;
 
-    let packageLockJson: string;
-    try {
-      packageLockJson = await fetchWithCache(
-        `https://raw.githubusercontent.com/${result.name}/${branch}/package-lock.json`,
-      );
-    } catch (error) {
-      if (error instanceof NetworkError && error.status === 404) {
-        log(styleText('gray', '  No package-lock.json found'));
-        return;
-      }
-
-      throw error;
-    }
+    const packageLockJson = await fetchWithCacheInRepo('package-lock.json');
 
     let parsedPackageLockJson: Record<string, unknown>;
     try {
@@ -438,11 +224,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const npmShrinkwrapJsonExists = await checkIfFileExists(
-    result.name,
-    branch,
-    'npm-shrinkwrap.json',
-  );
+  const npmShrinkwrapJsonExists = await checkIfFileExistsInRepo('npm-shrinkwrap.json');
 
   if (npmShrinkwrapJsonExists) {
     log(styleText('green', '  npm detected'));
@@ -453,24 +235,12 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const yarnLockExists = await checkIfFileExists(result.name, branch, 'yarn.lock');
+  const yarnLockExists = await checkIfFileExistsInRepo('yarn.lock');
 
   if (yarnLockExists) {
     stats.has_lockfile++;
 
-    let yarnLock: string;
-    try {
-      yarnLock = await fetchWithCache(
-        `https://raw.githubusercontent.com/${result.name}/${branch}/yarn.lock`,
-      );
-    } catch (error) {
-      if (error instanceof NetworkError && error.status === 404) {
-        log(styleText('gray', '  No yarn.lock found'));
-        return;
-      }
-
-      throw error;
-    }
+    const yarnLock = await fetchWithCacheInRepo('yarn.lock');
 
     if (yarnLock.match(/# yarn lockfile v1/i)) {
       log(styleText('green', '  Yarn Classic detected'));
@@ -507,26 +277,14 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     return;
   }
 
-  const pnpmLockYamlExists = await checkIfFileExists(result.name, branch, 'pnpm-lock.yaml');
+  const pnpmLockYamlExists = await checkIfFileExistsInRepo('pnpm-lock.yaml');
 
   if (pnpmLockYamlExists) {
     log(styleText('green', '  pnpm detected'));
     packageManagerStats.pnpm++;
     stats.has_lockfile++;
 
-    let pnpmLockYaml: string;
-    try {
-      pnpmLockYaml = await fetchWithCache(
-        `https://raw.githubusercontent.com/${result.name}/${branch}/pnpm-lock.yaml`,
-      );
-    } catch (error) {
-      if (error instanceof NetworkError && error.status === 404) {
-        log(styleText('gray', '  No pnpm-lock.yaml found'));
-        return;
-      }
-
-      throw error;
-    }
+    const pnpmLockYaml = await fetchWithCacheInRepo('pnpm-lock.yaml');
 
     const firstLineOfPnpmLockYaml = pnpmLockYaml.split('\n')[0] || '';
     const lockfileVersion = parseYaml(firstLineOfPnpmLockYaml).lockfileVersion;
@@ -558,8 +316,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   }
 
   const bunLockbOrBunLockExists =
-    (await checkIfFileExists(result.name, branch, 'bun.lockb')) ||
-    (await checkIfFileExists(result.name, branch, 'bun.lock'));
+    (await checkIfFileExistsInRepo('bun.lockb')) || (await checkIfFileExistsInRepo('bun.lock'));
 
   if (bunLockbOrBunLockExists) {
     log(styleText('green', '  bun detected'));
@@ -616,68 +373,60 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   // CONTRIBUTING.md is generally intended for contributors, not users, so it's a better
   // indicator of the package manager used by the project
-  const contributingMdExists = await checkIfFileExists(result.name, branch, 'CONTRIBUTING.md');
+  const contributingMdExists = await checkIfFileExistsInRepo('CONTRIBUTING.md');
 
   if (contributingMdExists) {
-    const contributingMd = await fetchWithCache(
-      `https://raw.githubusercontent.com/${result.name}/${branch}/CONTRIBUTING.md`,
-    );
+    const contributingMd = await fetchWithCacheInRepo('CONTRIBUTING.md');
 
-    if (contributingMd.match(/npm (ci|install|run|test)/i)) {
+    if (contributingMd.match(regexes.npm)) {
       log(styleText('green', '  npm detected'));
       packageManagerStats.npm++;
       return;
     }
 
-    if (contributingMd.match(/yarn/i)) {
+    if (contributingMd.match(regexes.yarn)) {
       log(styleText('red', '  Yarn detected, but not sure which version'));
       packageManagerStats.unknown++;
       return;
     }
 
-    if (contributingMd.match(/pnpm (ci|install|run|test)/i)) {
+    if (contributingMd.match(regexes.pnpm)) {
       log(styleText('green', '  pnpm detected'));
       packageManagerStats.pnpm++;
       return;
     }
 
-    if (contributingMd.match(/bun i/i)) {
+    if (contributingMd.match(regexes.bun)) {
       log(styleText('green', '  bun detected'));
       packageManagerStats.bun++;
       return;
     }
   }
 
-  const githubWorkflowsCiYmlExists = await checkIfFileExists(
-    result.name,
-    branch,
-    '.github/workflows/ci.yml',
-  );
+  const githubWorkflowsCiYmlExists = await checkIfFileExistsInRepo('.github/workflows/ci.yml');
 
   if (githubWorkflowsCiYmlExists) {
-    const githubWorkflowsCiYml = await fetchWithCache(
-      `https://raw.githubusercontent.com/${result.name}/${branch}/.github/workflows/ci.yml`,
-    );
+    const githubWorkflowsCiYml = await fetchWithCacheInRepo('.github/workflows/ci.yml');
 
-    if (githubWorkflowsCiYml.match(/npm (ci|install|run|test)/i)) {
+    if (githubWorkflowsCiYml.match(regexes.npm)) {
       log(styleText('green', '  npm detected'));
       packageManagerStats.npm++;
       return;
     }
 
-    if (githubWorkflowsCiYml.match(/yarn/i)) {
+    if (githubWorkflowsCiYml.match(regexes.yarn)) {
       log(styleText('red', '  Yarn detected, but not sure which version'));
       packageManagerStats.unknown++;
       return;
     }
 
-    if (githubWorkflowsCiYml.match(/pnpm (ci|install|run|test)/i)) {
+    if (githubWorkflowsCiYml.match(regexes.pnpm)) {
       log(styleText('green', '  pnpm detected'));
       packageManagerStats.pnpm++;
       return;
     }
 
-    if (githubWorkflowsCiYml.match(/bun i/i)) {
+    if (githubWorkflowsCiYml.match(regexes.bun)) {
       log(styleText('green', '  bun detected'));
       packageManagerStats.bun++;
       return;
