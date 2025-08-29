@@ -1,1 +1,1 @@
-bun run format --staged --no-errors-on-unmatched --write
+yarn format --staged --no-errors-on-unmatched --write

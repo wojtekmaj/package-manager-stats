@@ -3,13 +3,16 @@
   "version": "1.0.0",
   "description": "Script to get stats about package managers used in most popular projects on GitHub.",
   "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
-    "dev": "bun --watch index.ts",
+    "dev": "node --env-file=.env --watch ./src/index.ts",
     "format": "biome format",
     "lint": "biome lint",
     "postinstall": "husky",
-    "start": "bun src/index.ts",
-    "test": "bun run lint && bun run tsc && bun run format",
+    "start": "node --env-file=.env ./src/index.ts",
+    "test": "yarn lint && yarn tsc && yarn format",
     "tsc": "tsc"
   },
   "keywords": [
@@ -34,8 +37,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.8.0",
-    "@types/bun": "^1.0.0",
-    "@types/node": "22",
+    "@types/node": "^22.10.10",
     "@types/semver": "^7",
     "husky": "^9.0.0",
     "typescript": "^5.5.2"
@@ -45,5 +47,5 @@
     "url": "https://github.com/wojtekmaj/package-manager-stats.git"
   },
   "funding": "https://github.com/wojtekmaj/package-manager-stats?sponsor=1",
-  "packageManager": "yarn@4.2.1+sha256.15ce76682a8cd2090257b883cd69c637925b29573f9573e8403ec227d5ab6815"
+  "packageManager": "yarn@4.9.1"
 }
