@@ -45,5 +45,5 @@
     "url": "https://github.com/wojtekmaj/package-manager-stats.git"
   },
   "funding": "https://github.com/wojtekmaj/package-manager-stats?sponsor=1",
-  "packageManager": "yarn@4.9.1"
+  "packageManager": "yarn@4.10.2"
 }
