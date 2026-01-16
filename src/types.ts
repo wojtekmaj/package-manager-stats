@@ -1,3 +1,12 @@
+export type PackageManager = 'npm' | 'yarn_classic' | 'yarn_modern' | 'pnpm' | 'bun' | 'unknown';
+
+export type PackageManagerStats = Record<PackageManager, number>;
+
+export type PackageManagerVersionStats = Record<
+  Exclude<PackageManager, 'unknown'>,
+  Record<string, number>
+>;
+
 export type SearchResult = {
   full_name: string;
   url: string;

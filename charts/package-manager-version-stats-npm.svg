@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="236" viewBox="0 0 720 236" role="img" aria-label="npm versions">
+  <style>
+    text { font-family: "Helvetica Neue", Arial, sans-serif; fill: #0f172a; }
+    .title { font-size: 20px; font-weight: 700; }
+    .subtitle { font-size: 12px; fill: #475569; }
+    .footer { font-size: 12px; fill: #94a3b8; }
+    .label { font-size: 12px; text-anchor: end; fill: #0f172a; }
+    .value { font-size: 12px; fill: #0f172a; }
+  </style>
+<text class="title" x="16" y="24">npm versions</text><text class="subtitle" x="16" y="42">1/16/2026</text><g class="bars"><g class="bar" data-label="9 or 10 or 11"><text class="label" x="100" y="78" dominant-baseline="middle">9 or 10 or 11</text><rect x="110" y="64" width="470" height="28" rx="6" fill="#ea2039" /><text class="value" x="588" y="78" dominant-baseline="middle">628 (66.0%)</text></g><g class="bar" data-label="7 or 8"><text class="label" x="100" y="118" dominant-baseline="middle">7 or 8</text><rect x="110" y="104" width="152.6751592356688" height="28" rx="6" fill="#ea2039" /><text class="value" x="270.6751592356688" y="118" dominant-baseline="middle">204 (21.5%)</text></g><g class="bar" data-label="5 or 6"><text class="label" x="100" y="158" dominant-baseline="middle">5 or 6</text><rect x="110" y="144" width="89.06050955414014" height="28" rx="6" fill="#ea2039" /><text class="value" x="207.06050955414014" y="158" dominant-baseline="middle">119 (12.5%)</text></g></g><text class="footer" x="16" y="196">* npm version cannot always be accurately derived; may be guessed from lockfile</text></svg>

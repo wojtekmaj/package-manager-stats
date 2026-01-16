@@ -11,6 +11,7 @@
     "format": "biome format",
     "lint": "biome lint",
     "postinstall": "husky",
+    "charts": "node ./scripts/generate-charts.ts",
     "start": "node --env-file=.env ./src/index.ts",
     "test": "yarn lint && yarn tsc && yarn format",
     "tsc": "tsc"

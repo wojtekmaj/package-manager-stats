@@ -7,7 +7,11 @@ import { DEBUG, GITHUB_TOKEN } from './env.ts';
 import { info, log } from './logger.ts';
 import { checkIfFileExists, fetchLanguagePages, fetchWithCache } from './utils.ts';
 
-import type { SearchResultsPage } from './types.ts';
+import type {
+  PackageManagerStats,
+  PackageManagerVersionStats,
+  SearchResultsPage,
+} from './types.ts';
 
 if (!GITHUB_TOKEN) {
   throw new Error('GITHUB_TOKEN environment variable must be set');
@@ -43,7 +47,7 @@ const stats = {
   does_not_have_lockfile: 0,
 };
 
-const packageManagerStats = {
+const packageManagerStats: PackageManagerStats = {
   npm: 0,
   yarn_classic: 0,
   yarn_modern: 0,
@@ -52,7 +56,7 @@ const packageManagerStats = {
   unknown: 0,
 };
 
-const packageManagerVersionStats = {
+const packageManagerVersionStats: PackageManagerVersionStats = {
   npm: {},
   yarn_classic: {},
   yarn_modern: {},

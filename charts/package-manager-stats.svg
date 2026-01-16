@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" role="img" aria-label="Package manager usage">
+  <style>
+    text { font-family: "Helvetica Neue", Arial, sans-serif; fill: #0f172a; }
+    .title { font-size: 20px; font-weight: 700; }
+    .subtitle { font-size: 12px; fill: #475569; }
+    .footer { font-size: 12px; fill: #94a3b8; }
+    .label { font-size: 12px; text-anchor: end; fill: #0f172a; }
+    .value { font-size: 12px; fill: #0f172a; }
+  </style>
+<text class="title" x="16" y="24">Package manager usage</text><text class="subtitle" x="16" y="42">1/16/2026</text><g class="bars"><g class="bar" data-label="npm"><text class="label" x="100" y="78" dominant-baseline="middle">npm</text><rect x="110" y="64" width="470" height="28" rx="6" fill="#ea2039" /><text class="value" x="588" y="78" dominant-baseline="middle">1128 (67.3%)</text></g><g class="bar" data-label="yarn_classic"><text class="label" x="100" y="118" dominant-baseline="middle">Yarn Classic</text><rect x="110" y="104" width="128.33333333333334" height="28" rx="6" fill="#2c8ebb" /><text class="value" x="246.33333333333334" y="118" dominant-baseline="middle">308 (18.4%)</text></g><g class="bar" data-label="yarn_modern"><text class="label" x="100" y="158" dominant-baseline="middle">Yarn (Berry)</text><rect x="110" y="144" width="44.166666666666664" height="28" rx="6" fill="#2f2a68" /><text class="value" x="162.16666666666666" y="158" dominant-baseline="middle">106 (6.3%)</text></g><g class="bar" data-label="pnpm"><text class="label" x="100" y="198" dominant-baseline="middle">pnpm</text><rect x="110" y="184" width="40.833333333333336" height="28" rx="6" fill="#f9ad00" /><text class="value" x="158.83333333333334" y="198" dominant-baseline="middle">98 (5.9%)</text></g><g class="bar" data-label="bun"><text class="label" x="100" y="238" dominant-baseline="middle">Bun</text><rect x="110" y="224" width="14.583333333333334" height="28" rx="6" fill="#f472b6" /><text class="value" x="132.58333333333331" y="238" dominant-baseline="middle">35 (2.1%)</text></g></g></svg>
