@@ -4,7 +4,7 @@ Script to get stats about package managers used in most popular projects on GitH
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org) 22.6 or later with [Corepack](https://nodejs.org/api/corepack.html) enabled
+- [Node.js](https://nodejs.org) 22.18 or later with [Corepack](https://nodejs.org/api/corepack.html) enabled
 
 ## Usage
 
