@@ -644,7 +644,11 @@ function renderLineChart(
   const escapedSubtitle = options.subtitle ? escapeXml(options.subtitle) : undefined;
   const width = options.width ?? 720;
   const height = options.height ?? 420;
-  const margin = { top: 72, right: 120, bottom: 64, left: 64 };
+  const estimatedTickLabelWidth = Math.max(...dates.map((date) => date.length), 0) * 7;
+  const baseInnerWidth = width - 64 - 120;
+  const estimatedXStep = dates.length > 1 ? baseInnerWidth / (dates.length - 1) : baseInnerWidth;
+  const shouldRotateXTicks = dates.length > 1 && estimatedTickLabelWidth > estimatedXStep * 0.9;
+  const margin = { top: 72, right: 120, bottom: shouldRotateXTicks ? 96 : 64, left: 64 };
   const titleX = 16;
   const subtitleX = 16;
   const titleY = 24;
@@ -699,8 +703,19 @@ function renderLineChart(
   const xTicksGroup: string[] = [];
   dates.forEach((date, index) => {
     const x = margin.left + index * xStep;
+    const tickLabel = escapeXml(formatDateLabel(date));
+
+    if (shouldRotateXTicks) {
+      const y = height - margin.bottom + 20;
+      const adjustedX = x + 4;
+      xTicksGroup.push(
+        `<text class="tick" x="${adjustedX}" y="${y}" text-anchor="end" transform="rotate(-35 ${adjustedX} ${y})">${tickLabel}</text>`,
+      );
+      return;
+    }
+
     xTicksGroup.push(
-      `<text class="tick" x="${x}" y="${height - margin.bottom + 18}" text-anchor="middle">${escapeXml(date)}</text>`,
+      `<text class="tick" x="${x}" y="${height - margin.bottom + 18}" text-anchor="middle">${tickLabel}</text>`,
     );
   });
 
