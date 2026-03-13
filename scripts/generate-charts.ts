@@ -35,8 +35,18 @@ type GroupedVersionBreakdown = {
   unknownValue: number;
 };
 
+type StatsSummary = {
+  total: number;
+  nodejs: number;
+  non_nodejs: number;
+  uses_corepack: number;
+  does_not_use_corepack: number;
+  has_lockfile: number | null;
+  does_not_have_lockfile: number | null;
+};
+
 type LineSeries = {
-  key: PackageManager;
+  key: string;
   label: string;
   color: `#${string}`;
   values: number[];
@@ -168,6 +178,15 @@ function formatPercent(ratio: number): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(ratio);
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 function buildChartData(stats: PackageManagerStats): ChartDatum[] {
@@ -352,6 +371,9 @@ function renderBarChart(
 ): string {
   const theme = THEMES[themeName];
   const { title, subtitle, footer } = options;
+  const escapedTitle = escapeXml(title);
+  const escapedSubtitle = subtitle ? escapeXml(subtitle) : undefined;
+  const escapedFooter = footer ? escapeXml(footer) : undefined;
   const width = options.width ?? 720;
   const barHeight = options.barHeight ?? 28;
   const barGap = options.barGap ?? 12;
@@ -405,7 +427,7 @@ function renderBarChart(
   const svgParts: string[] = [];
 
   svgParts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${chartHeight}" viewBox="0 0 ${width} ${chartHeight}" role="img" aria-label="${title}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${chartHeight}" viewBox="0 0 ${width} ${chartHeight}" role="img" aria-label="${escapedTitle}">`,
   );
   svgParts.push(
     `
@@ -420,10 +442,12 @@ function renderBarChart(
 `,
   );
 
-  svgParts.push(`<text class="title" x="${titleX}" y="${titleY}">${title}</text>`);
+  svgParts.push(`<text class="title" x="${titleX}" y="${titleY}">${escapedTitle}</text>`);
 
-  if (subtitle) {
-    svgParts.push(`<text class="subtitle" x="${subtitleX}" y="${subtitleY}">${subtitle}</text>`);
+  if (escapedSubtitle) {
+    svgParts.push(
+      `<text class="subtitle" x="${subtitleX}" y="${subtitleY}">${escapedSubtitle}</text>`,
+    );
   }
 
   const barsGroup: string[] = [];
@@ -437,9 +461,10 @@ function renderBarChart(
     const valueLabel = `${datum.value} (${percentText})`;
     const barColor = resolveColor(datum.color, themeName);
     const hasMiniSegments = hasRenderableMiniSegments(datum);
+    const escapedLabel = escapeXml(datum.label);
 
     const groupParts = [
-      `<text class="label" x="${margin.left - 10}" y="${y + barHeight / 2}" dominant-baseline="middle">${datum.label}</text>`,
+      `<text class="label" x="${margin.left - 10}" y="${y + barHeight / 2}" dominant-baseline="middle">${escapedLabel}</text>`,
       `<rect x="${margin.left}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="${barColor}" />`,
       `<text class="value" x="${margin.left + barWidth + 8}" y="${y + barHeight / 2}" dominant-baseline="middle">${valueLabel}</text>`,
     ];
@@ -480,7 +505,7 @@ function renderBarChart(
 
         if (segmentWidth >= miniBarLabelMinWidth) {
           segmentParts.push(
-            `<text x="${segmentX + segmentWidth / 2}" y="${miniY + miniBarHeight / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="${segmentTextColor}">${segment.label}</text>`,
+            `<text x="${segmentX + segmentWidth / 2}" y="${miniY + miniBarHeight / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="${segmentTextColor}">${escapeXml(segment.label)}</text>`,
           );
         }
 
@@ -505,9 +530,9 @@ function renderBarChart(
 
   svgParts.push(`<g class="bars">${barsGroup.join('')}</g>`);
 
-  if (footer) {
+  if (escapedFooter) {
     const footerY = chartHeight - margin.bottom + (footerSpace ? footerSpace - 8 : 0);
-    svgParts.push(`<text class="footer" x="${footerX}" y="${footerY}">${footer}</text>`);
+    svgParts.push(`<text class="footer" x="${footerX}" y="${footerY}">${escapedFooter}</text>`);
   }
 
   svgParts.push('</svg>');
@@ -534,6 +559,24 @@ function collectStatsEntries(): Array<{ date: string; stats: PackageManagerStats
     const date = file.slice(0, 10);
     const statsPath = path.join(resultsDir, file);
     const stats = readJson<PackageManagerStats>(statsPath);
+    return { date, stats };
+  });
+}
+
+function collectStatsSummaryEntries(): Array<{ date: string; stats: StatsSummary }> {
+  const files = fs
+    .readdirSync(resultsDir)
+    .filter((file) => file.match(/^\d{4}-\d{2}-\d{2}-stats\.json$/))
+    .sort();
+
+  if (!files.length) {
+    throw new Error('No stats.json files found in results directory');
+  }
+
+  return files.map((file) => {
+    const date = file.slice(0, 10);
+    const statsPath = path.join(resultsDir, file);
+    const stats = readJson<StatsSummary>(statsPath);
     return { date, stats };
   });
 }
@@ -569,6 +612,27 @@ function buildPopularitySeries(): { dates: string[]; series: LineSeries[] } {
   return { dates, series };
 }
 
+function buildCorepackAdoptionSeries(): { dates: string[]; series: LineSeries[] } {
+  const entries = collectStatsSummaryEntries();
+  const dates = entries.map((entry) => entry.date);
+  const values = entries.map((entry) => {
+    const totalNodejs = entry.stats.nodejs || 1;
+    return (entry.stats.uses_corepack / totalNodejs) * 100;
+  });
+
+  return {
+    dates,
+    series: [
+      {
+        key: 'corepack_adoption',
+        label: 'Adoption',
+        color: PACKAGE_MANAGER_COLORS.yarn_modern,
+        values,
+      } satisfies LineSeries,
+    ],
+  };
+}
+
 function renderLineChart(
   dates: string[],
   series: LineSeries[],
@@ -576,6 +640,8 @@ function renderLineChart(
   themeName: ThemeName = 'light',
 ): string {
   const theme = THEMES[themeName];
+  const escapedTitle = escapeXml(options.title);
+  const escapedSubtitle = options.subtitle ? escapeXml(options.subtitle) : undefined;
   const width = options.width ?? 720;
   const height = options.height ?? 420;
   const margin = { top: 72, right: 120, bottom: 64, left: 64 };
@@ -594,7 +660,7 @@ function renderLineChart(
 
   const svgParts: string[] = [];
   svgParts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${options.title}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapedTitle}">`,
   );
   svgParts.push(
     `
@@ -609,10 +675,10 @@ function renderLineChart(
 `,
   );
 
-  svgParts.push(`<text class="title" x="${titleX}" y="${titleY}">${options.title}</text>`);
-  if (options.subtitle) {
+  svgParts.push(`<text class="title" x="${titleX}" y="${titleY}">${escapedTitle}</text>`);
+  if (escapedSubtitle) {
     svgParts.push(
-      `<text class="subtitle" x="${subtitleX}" y="${subtitleY}">${options.subtitle}</text>`,
+      `<text class="subtitle" x="${subtitleX}" y="${subtitleY}">${escapedSubtitle}</text>`,
     );
   }
 
@@ -634,7 +700,7 @@ function renderLineChart(
   dates.forEach((date, index) => {
     const x = margin.left + index * xStep;
     xTicksGroup.push(
-      `<text class="tick" x="${x}" y="${height - margin.bottom + 18}" text-anchor="middle">${date}</text>`,
+      `<text class="tick" x="${x}" y="${height - margin.bottom + 18}" text-anchor="middle">${escapeXml(date)}</text>`,
     );
   });
 
@@ -674,7 +740,7 @@ function renderLineChart(
     const seriesColor = resolveColor(entry.color, themeName);
     const y = legendY + index * 20;
     legendGroup.push(
-      `<g class="legend-item" data-key="${entry.key}"><rect x="${legendX}" y="${y - 10}" width="12" height="12" rx="2" fill="${seriesColor}" /><text class="legend" x="${legendX + 18}" y="${y}" dominant-baseline="middle">${entry.label}</text></g>`,
+      `<g class="legend-item" data-key="${entry.key}"><rect x="${legendX}" y="${y - 10}" width="12" height="12" rx="2" fill="${seriesColor}" /><text class="legend" x="${legendX + 18}" y="${y}" dominant-baseline="middle">${escapeXml(entry.label)}</text></g>`,
     );
   });
 
@@ -761,4 +827,31 @@ if (popularity.series.length) {
 
   writeChart(trendChartLight, 'package-manager-trend.svg');
   writeChart(trendChartDark, 'package-manager-trend-dark.svg');
+}
+
+const corepackAdoption = buildCorepackAdoptionSeries();
+
+if (corepackAdoption.series.length) {
+  const firstDate = corepackAdoption.dates[0] ?? latestDate;
+  const lastDate = corepackAdoption.dates[corepackAdoption.dates.length - 1] ?? latestDate;
+  const corepackOptions = {
+    title: 'Corepack & Yarn Switch adoption',
+    subtitle: `${formatDateLabel(firstDate)} – ${formatDateLabel(lastDate)}`,
+  } as const;
+
+  const corepackChartLight = renderLineChart(
+    corepackAdoption.dates,
+    corepackAdoption.series,
+    corepackOptions,
+    'light',
+  );
+  const corepackChartDark = renderLineChart(
+    corepackAdoption.dates,
+    corepackAdoption.series,
+    corepackOptions,
+    'dark',
+  );
+
+  writeChart(corepackChartLight, 'corepack-adoption-trend.svg');
+  writeChart(corepackChartDark, 'corepack-adoption-trend-dark.svg');
 }

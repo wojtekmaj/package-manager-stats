@@ -68,3 +68,8 @@ Outputs land in [charts](charts) directory. Version charts are produced only whe
 	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-pnpm-dark.svg" />
 	<img alt="pnpm versions" src="./charts/package-manager-version-stats-pnpm.svg" />
 </picture>
+
+<picture>
+	<source media="(prefers-color-scheme: dark)" srcset="./charts/corepack-adoption-trend-dark.svg" />
+	<img alt="Corepack and Yarn Switch adoption over time" src="./charts/corepack-adoption-trend.svg" />
+</picture>
