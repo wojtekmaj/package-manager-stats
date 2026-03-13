@@ -243,9 +243,10 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   if (npmShrinkwrapJsonExists) {
     log(styleText('green', '  npm detected'));
     packageManagerStats.npm++;
+    stats.has_lockfile++;
+
     const npmStats: Record<string, number> = packageManagerVersionStats.npm;
     npmStats.unknown = (npmStats.unknown ?? 0) + 1;
-    stats.has_lockfile++;
     return;
   }
 
@@ -261,6 +262,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     if (yarnLock.match(/# yarn lockfile v1/i)) {
       log(styleText('green', '  Yarn Classic detected'));
       packageManagerStats.yarn_classic++;
+
       const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
       yarnClassicStats['1'] = (yarnClassicStats['1'] ?? 0) + 1;
       return;
