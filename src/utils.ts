@@ -7,6 +7,41 @@ import { log } from './logger.ts';
 
 import type { SearchResultsPage } from './types.ts';
 
+function getHeaderValue(headersInit: HeadersInit | undefined, headerName: string) {
+  if (!headersInit) {
+    return undefined;
+  }
+
+  return new Headers(headersInit).get(headerName);
+}
+
+export function parsePartialJson(raw: string): Record<string, unknown> | undefined {
+  // Try our luck and see if it's valid JSON first
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // If it's not, we'll try to parse it as a partial JSON
+    const lastCommaIndex = raw.lastIndexOf(',');
+
+    if (lastCommaIndex === -1) {
+      return undefined;
+    }
+
+    const slicedJson = raw.slice(0, lastCommaIndex);
+
+    const numberOfOpenBraces = slicedJson.match(/{/g)?.length ?? 0;
+    const numberOfCloseBraces = slicedJson.match(/}/g)?.length ?? 0;
+
+    const partialJson = slicedJson + '}'.repeat(numberOfOpenBraces - numberOfCloseBraces);
+
+    try {
+      return JSON.parse(partialJson);
+    } catch {
+      return undefined;
+    }
+  }
+}
+
 /**
  * Fetches a URL and caches it in the .cache directory. On subsequent calls, it
  * will return the cached version if it exists.
@@ -14,10 +49,9 @@ import type { SearchResultsPage } from './types.ts';
 export async function fetchWithCache(input: string | URL, init?: RequestInit): Promise<string> {
   // log(styleText('gray', `Getting ${input}…`));
 
-  const cacheKey = input
-    .toString()
-    .replace(/[^a-z0-9]/gi, '_')
-    .toLowerCase();
+  const rangeHeaderValue = getHeaderValue(init?.headers, 'range');
+  const rangeSuffix = rangeHeaderValue ? `__range_${rangeHeaderValue}` : '';
+  const cacheKey = `${input}${rangeSuffix}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   const cachePath = `${CACHE_DIR}/fetch/${cacheKey}`;
   const cacheExists = fs.existsSync(cachePath);
 

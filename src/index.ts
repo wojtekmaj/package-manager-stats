@@ -5,7 +5,12 @@ import { parse as parseYaml } from 'yaml';
 
 import { DEBUG, GITHUB_TOKEN } from './env.ts';
 import { info, log } from './logger.ts';
-import { checkIfFileExists, fetchLanguagePages, fetchWithCache } from './utils.ts';
+import {
+  checkIfFileExists,
+  fetchLanguagePages,
+  fetchWithCache,
+  parsePartialJson,
+} from './utils.ts';
 
 import type {
   PackageManagerStats,
@@ -90,8 +95,11 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
   const branch = result.default_branch;
 
-  function fetchWithCacheInRepo(path: string) {
-    return fetchWithCache(`https://raw.githubusercontent.com/${result.name}/${branch}/${path}`);
+  function fetchWithCacheInRepo(path: string, init?: RequestInit) {
+    return fetchWithCache(
+      `https://raw.githubusercontent.com/${result.name}/${branch}/${path}`,
+      init,
+    );
   }
 
   function checkIfFileExistsInRepo(path: string) {
@@ -186,25 +194,27 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     packageManagerStats.npm++;
     stats.has_lockfile++;
 
-    const packageLockJson = await fetchWithCacheInRepo('package-lock.json');
+    const parsedPackageLockJson = await (async () => {
+      const packageLockJson = await fetchWithCacheInRepo('package-lock.json', {
+        headers: { Range: 'bytes=0-127' },
+      });
 
-    let parsedPackageLockJson: Record<string, unknown>;
-    try {
-      parsedPackageLockJson = JSON.parse(packageLockJson);
-    } catch {
-      log(styleText('red', '  Invalid package-lock.json, attempting to partially parse'));
+      let parsedPackageLockJson = parsePartialJson(packageLockJson);
 
-      // Attempt to partially read package-lock.json by taking its first 5 lines, removing the last comma and adding "}"
-      const firstFiveLines = packageLockJson.split('\n').slice(0, 5).join('\n');
-      const lastCommaIndex = firstFiveLines.lastIndexOf(',');
-      const partialJson = `${firstFiveLines.slice(0, lastCommaIndex)}\n}`;
-
-      try {
-        parsedPackageLockJson = JSON.parse(partialJson);
-      } catch {
-        throw new Error(`Invalid package-lock.json: ${partialJson}`);
+      if (parsedPackageLockJson) {
+        return parsedPackageLockJson;
       }
-    }
+
+      const fullPackageLockJson = await fetchWithCacheInRepo('package-lock.json');
+
+      parsedPackageLockJson = parsePartialJson(fullPackageLockJson);
+
+      if (parsedPackageLockJson) {
+        return parsedPackageLockJson;
+      }
+
+      throw new Error('Invalid package-lock.json');
+    })();
 
     const packageLockJsonVersion = parsedPackageLockJson.lockfileVersion as string | undefined;
 
@@ -244,7 +254,9 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
   if (yarnLockExists) {
     stats.has_lockfile++;
 
-    const yarnLock = await fetchWithCacheInRepo('yarn.lock');
+    const yarnLock = await fetchWithCacheInRepo('yarn.lock', {
+      headers: { Range: 'bytes=0-151' },
+    });
 
     if (yarnLock.match(/# yarn lockfile v1/i)) {
       log(styleText('green', '  Yarn Classic detected'));
@@ -288,7 +300,9 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     packageManagerStats.pnpm++;
     stats.has_lockfile++;
 
-    const pnpmLockYaml = await fetchWithCacheInRepo('pnpm-lock.yaml');
+    const pnpmLockYaml = await fetchWithCacheInRepo('pnpm-lock.yaml', {
+      headers: { Range: 'bytes=0-22' },
+    });
 
     const firstLineOfPnpmLockYaml = pnpmLockYaml.split('\n')[0] || '';
     const lockfileVersion = parseYaml(firstLineOfPnpmLockYaml).lockfileVersion;
