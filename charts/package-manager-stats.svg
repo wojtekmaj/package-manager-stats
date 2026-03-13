@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" role="img" aria-label="Package manager usage">
   <style>
-    text { font-family: "Helvetica Neue", Arial, sans-serif; fill: #0f172a; }
-    .title { font-size: 20px; font-weight: 700; }
+    text { font-family: "Helvetica Neue", Arial, sans-serif; }
+    .title { font-size: 20px; font-weight: 700; fill: #0f172a; }
     .subtitle { font-size: 12px; fill: #475569; }
     .footer { font-size: 12px; fill: #94a3b8; }
     .label { font-size: 12px; text-anchor: end; fill: #0f172a; }

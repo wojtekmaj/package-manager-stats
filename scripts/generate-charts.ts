@@ -20,6 +20,19 @@ type ChartDatum = {
   value: number;
   color: `#${string}`;
   rawLabel?: string;
+  miniSegments?: MiniBarSegment[];
+};
+
+type MiniBarSegment = {
+  label: string;
+  value: number;
+  color: `#${string}`;
+};
+
+type GroupedVersionBreakdown = {
+  tokens: string[];
+  knownValues: Record<string, number>;
+  unknownValue: number;
 };
 
 type LineSeries = {
@@ -114,6 +127,15 @@ function resolveColor(color: `#${string}`, themeName: ThemeName): `#${string}` {
   return color;
 }
 
+function getContrastTextColor(color: `#${string}`): `#${string}` {
+  const red = Number.parseInt(color.slice(1, 3), 16);
+  const green = Number.parseInt(color.slice(3, 5), 16);
+  const blue = Number.parseInt(color.slice(5, 7), 16);
+  const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
+
+  return brightness > 160 ? '#111827' : '#ffffff';
+}
+
 function findLatestDate(): string {
   const statsDates = collectDates(/^(\d{4}-\d{2}-\d{2})-package-manager-stats\.json$/);
   const versionDates = collectDates(/^(\d{4}-\d{2}-\d{2})-package-manager-version-stats\.json$/);
@@ -165,6 +187,7 @@ function buildChartData(stats: PackageManagerStats): ChartDatum[] {
 function buildVersionChartData(
   pm: Exclude<PackageManager, 'unknown'>,
   stats: Record<string, number>,
+  groupedBreakdowns: Record<string, GroupedVersionBreakdown> = {},
 ): ChartDatum[] {
   return Object.entries(stats)
     .filter(([version]) => version !== 'unknown')
@@ -174,10 +197,30 @@ function buildVersionChartData(
       value,
       color: PACKAGE_MANAGER_COLORS[pm],
       order: parseVersionOrder(version),
+      miniSegments: buildMiniSegments(pm, groupedBreakdowns[normalizeVersionLabel(version)]),
     }))
     .filter((datum) => datum.value > 0)
     .sort((a, b) => b.order - a.order)
     .map(({ order: _order, ...rest }) => rest);
+}
+
+function buildMiniSegments(
+  pm: Exclude<PackageManager, 'unknown'>,
+  breakdown?: GroupedVersionBreakdown,
+): MiniBarSegment[] | undefined {
+  if (!breakdown) {
+    return undefined;
+  }
+
+  const segments = breakdown.tokens
+    .map((token) => ({
+      label: token,
+      value: breakdown.knownValues[token] ?? 0,
+      color: PACKAGE_MANAGER_COLORS[pm],
+    }))
+    .filter((segment) => segment.value > 0);
+
+  return segments.length ? segments : undefined;
 }
 
 function normalizeVersionLabel(version: string): string {
@@ -227,10 +270,12 @@ function resolveVersionGroup(version: string, tokenToGroup: Record<string, strin
 
 function mergeVersionStats(stats: Record<string, number>): {
   merged: Record<string, number>;
+  groupedBreakdowns: Record<string, GroupedVersionBreakdown>;
   hadMerges: boolean;
 } {
   const merged: Record<string, number> = {};
   const tokenToGroup: Record<string, string> = {};
+  const groupedBreakdowns: Record<string, GroupedVersionBreakdown> = {};
   let hadMerges = false;
 
   // Build token lookup from ambiguous labels (those containing " or ")
@@ -246,6 +291,12 @@ function mergeVersionStats(stats: Record<string, number>): {
       .map((token) => token.trim())
       .filter(Boolean);
 
+    groupedBreakdowns[label] = {
+      tokens,
+      knownValues: Object.fromEntries(tokens.map((token) => [token, 0])),
+      unknownValue: 0,
+    };
+
     tokens.forEach((token) => {
       if (!tokenToGroup[token]) {
         tokenToGroup[token] = label;
@@ -260,11 +311,30 @@ function mergeVersionStats(stats: Record<string, number>): {
 
     const normalizedVersion = normalizeVersionLabel(version);
     const group = resolveVersionGroup(version, tokenToGroup);
+    const breakdown = groupedBreakdowns[group];
+
     hadMerges = hadMerges || group !== normalizedVersion || merged[group] !== undefined;
     merged[group] = (merged[group] ?? 0) + value;
+
+    if (!breakdown) {
+      return;
+    }
+
+    if (normalizedVersion === group) {
+      breakdown.unknownValue += value;
+      return;
+    }
+
+    if (breakdown.tokens.includes(normalizedVersion)) {
+      breakdown.knownValues[normalizedVersion] =
+        (breakdown.knownValues[normalizedVersion] ?? 0) + value;
+      return;
+    }
+
+    breakdown.unknownValue += value;
   });
 
-  return { merged, hadMerges };
+  return { merged, groupedBreakdowns, hadMerges };
 }
 
 function formatDateLabel(date: string): string {
@@ -292,15 +362,45 @@ function renderBarChart(
   const subtitleY = 42;
   const footerX = titleX;
   const footerSpace = footer ? 16 : 0;
+  const miniBarHeight = 11;
+  const miniBarOffset = 6;
+  const miniBarLabelMinWidth = 22;
 
   const total = data.reduce((sum, datum) => sum + datum.value, 0);
   const maxValue = data.reduce((max, datum) => Math.max(max, datum.value), 0);
 
   const innerWidth = width - margin.left - margin.right;
-  const chartHeight =
-    margin.top + margin.bottom + footerSpace + data.length * (barHeight + barGap) - barGap;
-
   const safeMaxValue = maxValue === 0 ? 1 : maxValue;
+
+  function getBarWidth(datum: ChartDatum): number {
+    return Math.max((datum.value / safeMaxValue) * innerWidth, 0);
+  }
+
+  function hasRenderableMiniSegments(datum: ChartDatum): boolean {
+    if (!datum.miniSegments || datum.value <= 0) {
+      return false;
+    }
+
+    const barWidth = getBarWidth(datum);
+    const visibleKnownWidth = datum.miniSegments.reduce((sum, segment) => {
+      if (segment.value <= 0) {
+        return sum;
+      }
+
+      return sum + (segment.value / datum.value) * barWidth;
+    }, 0);
+
+    return visibleKnownWidth >= 1;
+  }
+
+  function getDatumHeight(datum: ChartDatum): number {
+    return hasRenderableMiniSegments(datum) ? barHeight + miniBarOffset + miniBarHeight : barHeight;
+  }
+
+  const barsHeight = data.reduce((sum, datum, index) => {
+    return sum + getDatumHeight(datum) + (index < data.length - 1 ? barGap : 0);
+  }, 0);
+  const chartHeight = margin.top + margin.bottom + footerSpace + barsHeight;
 
   const svgParts: string[] = [];
 
@@ -310,8 +410,8 @@ function renderBarChart(
   svgParts.push(
     `
   <style>
-    text { font-family: "Helvetica Neue", Arial, sans-serif; fill: ${theme.text}; }
-    .title { font-size: 20px; font-weight: 700; }
+    text { font-family: "Helvetica Neue", Arial, sans-serif; }
+    .title { font-size: 20px; font-weight: 700; fill: ${theme.text}; }
     .subtitle { font-size: 12px; fill: ${theme.subtitle}; }
     .footer { font-size: 12px; fill: ${theme.footer}; }
     .label { font-size: 12px; text-anchor: end; fill: ${theme.label}; }
@@ -327,18 +427,80 @@ function renderBarChart(
   }
 
   const barsGroup: string[] = [];
+  let currentY = margin.top;
 
   data.forEach((datum, index) => {
-    const y = margin.top + index * (barHeight + barGap);
-    const barWidth = Math.max((datum.value / safeMaxValue) * innerWidth, 0);
+    const y = currentY;
+    const barWidth = getBarWidth(datum);
     const ratio = total ? datum.value / total : 0;
     const percentText = formatPercent(ratio);
     const valueLabel = `${datum.value} (${percentText})`;
     const barColor = resolveColor(datum.color, themeName);
+    const hasMiniSegments = hasRenderableMiniSegments(datum);
+
+    const groupParts = [
+      `<text class="label" x="${margin.left - 10}" y="${y + barHeight / 2}" dominant-baseline="middle">${datum.label}</text>`,
+      `<rect x="${margin.left}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="${barColor}" />`,
+      `<text class="value" x="${margin.left + barWidth + 8}" y="${y + barHeight / 2}" dominant-baseline="middle">${valueLabel}</text>`,
+    ];
+
+    if (hasMiniSegments) {
+      const miniY = y + barHeight + miniBarOffset;
+      const clipId = `mini-bar-${themeName}-${index}-${(datum.rawLabel ?? datum.label)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')}`;
+      const separatorColor = themeName === 'dark' ? '#0f172a' : '#ffffff';
+      let segmentOffset = 0;
+      const segmentParts: string[] = [];
+
+      datum.miniSegments?.forEach((segment) => {
+        if (segment.value <= 0 || datum.value <= 0) {
+          return;
+        }
+
+        const segmentWidth = (segment.value / datum.value) * barWidth;
+
+        if (segmentWidth <= 0) {
+          return;
+        }
+
+        const resolvedSegmentColor = resolveColor(segment.color, themeName);
+        const segmentX = margin.left + segmentOffset;
+        const segmentTextColor = getContrastTextColor(resolvedSegmentColor);
+
+        segmentParts.push(
+          `<rect x="${segmentX}" y="${miniY}" width="${segmentWidth}" height="${miniBarHeight}" fill="${resolvedSegmentColor}" />`,
+        );
+
+        if (segmentOffset > 0) {
+          segmentParts.push(
+            `<line x1="${segmentX}" y1="${miniY}" x2="${segmentX}" y2="${miniY + miniBarHeight}" stroke="${separatorColor}" stroke-width="1" />`,
+          );
+        }
+
+        if (segmentWidth >= miniBarLabelMinWidth) {
+          segmentParts.push(
+            `<text x="${segmentX + segmentWidth / 2}" y="${miniY + miniBarHeight / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="${segmentTextColor}">${segment.label}</text>`,
+          );
+        }
+
+        segmentOffset += segmentWidth;
+      });
+
+      groupParts.push(
+        `<clipPath id="${clipId}"><rect x="${margin.left}" y="${miniY}" width="${barWidth}" height="${miniBarHeight}" rx="4" /></clipPath>`,
+      );
+      groupParts.push(
+        `<rect x="${margin.left}" y="${miniY}" width="${barWidth}" height="${miniBarHeight}" rx="4" fill="${theme.axis}" opacity="0.25" />`,
+      );
+      groupParts.push(`<g clip-path="url(#${clipId})">${segmentParts.join('')}</g>`);
+    }
 
     barsGroup.push(
-      `<g class="bar" data-label="${datum.rawLabel ?? datum.label}"><text class="label" x="${margin.left - 10}" y="${y + barHeight / 2}" dominant-baseline="middle">${datum.label}</text><rect x="${margin.left}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="${barColor}" /><text class="value" x="${margin.left + barWidth + 8}" y="${y + barHeight / 2}" dominant-baseline="middle">${valueLabel}</text></g>`,
+      `<g class="bar" data-label="${datum.rawLabel ?? datum.label}">${groupParts.join('')}</g>`,
     );
+
+    currentY += getDatumHeight(datum) + (index < data.length - 1 ? barGap : 0);
   });
 
   svgParts.push(`<g class="bars">${barsGroup.join('')}</g>`);
@@ -437,8 +599,8 @@ function renderLineChart(
   svgParts.push(
     `
   <style>
-    text { font-family: "Helvetica Neue", Arial, sans-serif; fill: ${theme.text}; }
-    .title { font-size: 20px; font-weight: 700; }
+    text { font-family: "Helvetica Neue", Arial, sans-serif; }
+    .title { font-size: 20px; font-weight: 700; fill: ${theme.text}; }
     .subtitle { font-size: 12px; fill: ${theme.subtitle}; }
     .axis { stroke: ${theme.axis}; stroke-width: 1; }
     .legend { font-size: 12px; fill: ${theme.legend}; }
@@ -553,8 +715,8 @@ const versionEntries = Object.entries(packageManagerVersionStats) as Array<
 >;
 
 versionEntries.forEach(([pm, stats]) => {
-  const { merged, hadMerges } = mergeVersionStats(stats);
-  const chartData = buildVersionChartData(pm, merged);
+  const { merged, groupedBreakdowns, hadMerges } = mergeVersionStats(stats);
+  const chartData = buildVersionChartData(pm, merged, groupedBreakdowns);
   const total = chartData.reduce((sum, datum) => sum + datum.value, 0);
   const majorVariants = countMajorVariants(merged);
 

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-label="Package manager popularity over time">
   <style>
-    text { font-family: "Helvetica Neue", Arial, sans-serif; fill: #0f172a; }
-    .title { font-size: 20px; font-weight: 700; }
+    text { font-family: "Helvetica Neue", Arial, sans-serif; }
+    .title { font-size: 20px; font-weight: 700; fill: #0f172a; }
     .subtitle { font-size: 12px; fill: #475569; }
     .axis { stroke: #cbd5e1; stroke-width: 1; }
     .legend { font-size: 12px; fill: #0f172a; }
