@@ -73,3 +73,11 @@ Outputs land in [charts](charts) directory. Version charts are produced only whe
 	<source media="(prefers-color-scheme: dark)" srcset="./charts/corepack-adoption-trend-dark.svg" />
 	<img alt="Corepack and Yarn Switch adoption over time" src="./charts/corepack-adoption-trend.svg" />
 </picture>
+
+### Methodology
+
+The dataset comes from GitHub repository search results for JavaScript and TypeScript projects, fetched separately, sorted by stars, and limited to up to 1000 results per language. That makes the charts a snapshot of the most-starred repositories matching the query.
+
+Calculation is simple: for each repo, the script prefers the `packageManager` field in `package.json`, then falls back to lockfile-based signals. Version charts use the best available version signal, sometimes only inferring a major version from lockfile format.
+
+Other methodologies are possible. If you inspect the source, you will find alternative selection rules you can try yourself.
