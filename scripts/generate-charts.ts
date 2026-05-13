@@ -121,6 +121,9 @@ const PACKAGE_MANAGER_COLORS: Record<PackageManager, `#${string}`> = {
   unknown: '#6b7280',
 };
 
+const COREPACK_NPM_PNPM_BUG_FIX_DATE = '2026-03-13';
+const COREPACK_PNPM_MISCOUNT_RATIO = 290 / 493;
+
 const DARK_MODE_COLOR_OVERRIDES: Partial<Record<`#${string}`, `#${string}`>> = {
   [PACKAGE_MANAGER_COLORS.yarn_modern]: '#7c6ff6',
 };
@@ -604,8 +607,36 @@ function totalStats(stats: PackageManagerStats): number {
   return Object.values(stats).reduce((sum, value) => sum + value, 0);
 }
 
+function estimateCorepackNpmPnpmCorrection(
+  date: string,
+  stats: PackageManagerStats,
+  summary?: StatsSummary,
+): PackageManagerStats {
+  if (date >= COREPACK_NPM_PNPM_BUG_FIX_DATE || !summary) {
+    return stats;
+  }
+
+  const estimatedMiscount = Math.round(summary.uses_corepack * COREPACK_PNPM_MISCOUNT_RATIO);
+
+  return {
+    ...stats,
+    npm: Math.max(stats.npm - estimatedMiscount, 0),
+    pnpm: stats.pnpm + estimatedMiscount,
+  };
+}
+
 function buildPopularitySeries(): { dates: string[]; series: LineSeries[] } {
-  const entries = collectStatsEntries();
+  const summaryEntries = new Map(
+    collectStatsSummaryEntries().map((entry) => [entry.date, entry.stats] as const),
+  );
+  const entries = collectStatsEntries().map((entry) => ({
+    ...entry,
+    stats: estimateCorepackNpmPnpmCorrection(
+      entry.date,
+      entry.stats,
+      summaryEntries.get(entry.date),
+    ),
+  }));
   const dates = entries.map((entry) => entry.date);
   const totals = entries.map((entry) => totalStats(entry.stats) || 1);
 
@@ -890,7 +921,7 @@ if (popularity.series.length) {
   const trendOptions = {
     title: 'Package manager popularity over time',
     subtitle: `${formatDateLabel(firstDate)} – ${formatDateLabel(lastDate)}`,
-    footer: '* A significant npm/pnpm counting bug was fixed on 3/13/2026',
+    footer: '* npm & pnpm values before 3/13/2026 are corrected estimates',
   } as const;
 
   const trendChartLight = renderLineChart(

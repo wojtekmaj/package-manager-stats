@@ -80,4 +80,6 @@ The dataset comes from GitHub repository search results for JavaScript and TypeS
 
 Calculation is simple: for each repo, the script prefers the `packageManager` field in `package.json`, then falls back to lockfile-based signals. Version charts use the best available version signal, sometimes only inferring a major version from lockfile format.
 
+Package manager trend points before March 13, 2026 estimate npm and pnpm values by applying the fixed Corepack `packageManager` parsing error ratio from the March 13, 2026 snapshot. Raw result files remain unadjusted historical snapshots.
+
 Other methodologies are possible. If you inspect the source, you will find alternative selection rules you can try yourself.
