@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import type {
   PackageManager,
+  PackageManagerMonorepoStats,
   PackageManagerStats,
   PackageManagerVersionStats,
 } from '../src/types.ts';
@@ -27,6 +28,7 @@ type ChartDatum = {
   value: number;
   color: `#${string}`;
   rawLabel?: string;
+  valueLabel?: string;
   miniSegments?: MiniBarSegment[];
 };
 
@@ -178,6 +180,10 @@ function findLatestDate(): string {
   return overlappingDates.sort().pop() as string;
 }
 
+function resultFileExists(date: string, suffix: string): boolean {
+  return fs.existsSync(path.join(resultsDir, `${date}-${suffix}.json`));
+}
+
 function collectDates(regex: RegExp): string[] {
   return fs
     .readdirSync(resultsDir)
@@ -297,6 +303,30 @@ function buildChartData(stats: PackageManagerStats): ChartDatum[] {
       value,
       color: PACKAGE_MANAGER_COLORS[pm],
     }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function buildMonorepoRateChartData(stats: PackageManagerMonorepoStats): ChartDatum[] {
+  const entries = Object.entries(stats) as Array<
+    [PackageManager, { is_monorepo: number; is_not_monorepo: number }]
+  >;
+
+  return entries
+    .filter(([pm, value]) => {
+      return pm !== 'unknown' && value.is_monorepo + value.is_not_monorepo > 0;
+    })
+    .map(([pm, value]) => {
+      const total = value.is_monorepo + value.is_not_monorepo;
+      const ratio = value.is_monorepo / total;
+
+      return {
+        label: PACKAGE_MANAGER_LABELS[pm],
+        rawLabel: pm,
+        value: ratio * 100,
+        valueLabel: `${formatPercent(ratio)} (${value.is_monorepo}/${total})`,
+        color: PACKAGE_MANAGER_COLORS[pm],
+      };
+    })
     .sort((a, b) => b.value - a.value);
 }
 
@@ -602,7 +632,7 @@ function renderBarChart(
     const barWidth = getBarWidth(datum);
     const ratio = total ? datum.value / total : 0;
     const percentText = formatPercent(ratio);
-    const valueLabel = `${datum.value} (${percentText})`;
+    const valueLabel = datum.valueLabel ?? `${datum.value} (${percentText})`;
     const barColor = resolveColor(datum.color, themeName);
     const hasMiniSegments = hasRenderableMiniSegments(datum);
     const escapedLabel = escapeXml(datum.label);
@@ -708,14 +738,16 @@ function writeChart(svg: string, filename: string): void {
   fs.writeFileSync(targetPath, `${svg}\n`);
 }
 
-function collectStatsEntries(): Array<{ date: string; stats: PackageManagerStats }> {
+function collectStatsEntries(
+  suffix = 'package-manager-stats',
+): Array<{ date: string; stats: PackageManagerStats }> {
   const files = fs
     .readdirSync(resultsDir)
-    .filter((file) => file.match(/^\d{4}-\d{2}-\d{2}-package-manager-stats\.json$/))
+    .filter((file) => file.match(new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${suffix}\\.json$`)))
     .sort();
 
   if (!files.length) {
-    throw new Error('No package-manager-stats.json files found in results directory');
+    throw new Error(`No ${suffix}.json files found in results directory`);
   }
 
   return files.map((file) => {
@@ -766,18 +798,27 @@ function estimateCorepackNpmPnpmCorrection(
   };
 }
 
-function buildPopularitySeries(): { dates: string[]; series: LineSeries[] } {
-  const summaryEntries = new Map(
-    collectStatsSummaryEntries().map((entry) => [entry.date, entry.stats] as const),
-  );
-  const entries = collectStatsEntries().map((entry) => ({
-    ...entry,
-    stats: estimateCorepackNpmPnpmCorrection(
-      entry.date,
-      entry.stats,
-      summaryEntries.get(entry.date),
-    ),
-  }));
+function buildPopularitySeries(suffix = 'package-manager-stats'): {
+  dates: string[];
+  series: LineSeries[];
+} {
+  const entries =
+    suffix === 'package-manager-stats'
+      ? (() => {
+          const summaryEntries = new Map(
+            collectStatsSummaryEntries().map((entry) => [entry.date, entry.stats] as const),
+          );
+
+          return collectStatsEntries(suffix).map((entry) => ({
+            ...entry,
+            stats: estimateCorepackNpmPnpmCorrection(
+              entry.date,
+              entry.stats,
+              summaryEntries.get(entry.date),
+            ),
+          }));
+        })()
+      : collectStatsEntries(suffix);
   const dates = entries.map((entry) => entry.date);
   const totals = entries.map((entry) => totalStats(entry.stats) || 1);
 
@@ -1114,6 +1155,111 @@ writeChart(pmChartDark, 'package-manager-stats-dark.svg');
 writeChart(pmChartLargeLight, 'package-manager-stats-large.svg');
 writeChart(pmChartLargeDark, 'package-manager-stats-large-dark.svg');
 
+if (resultFileExists(latestDate, 'package-manager-weighted-stats')) {
+  const weightedStatsPath = path.join(
+    resultsDir,
+    `${latestDate}-package-manager-weighted-stats.json`,
+  );
+  const packageManagerWeightedStats = readJson<PackageManagerStats>(weightedStatsPath);
+  const weightedPmChartData = buildChartData(packageManagerWeightedStats);
+  const weightedPmChartOptions = {
+    title: 'Package manager usage, weighted by package count',
+    subtitle: formatDateLabel(latestDate),
+  } satisfies ChartOptions;
+  const weightedPmChartLargeOptions = {
+    ...weightedPmChartOptions,
+    width: LARGE_CHART_WIDTH,
+    layout: 'side',
+  } satisfies ChartOptions;
+  const weightedPmChartLight = renderBarChart(weightedPmChartData, weightedPmChartOptions);
+  const weightedPmChartDark = renderBarChart(weightedPmChartData, weightedPmChartOptions, 'dark');
+  const weightedPmChartLargeLight = renderBarChart(
+    weightedPmChartData,
+    weightedPmChartLargeOptions,
+  );
+  const weightedPmChartLargeDark = renderBarChart(
+    weightedPmChartData,
+    weightedPmChartLargeOptions,
+    'dark',
+  );
+
+  writeChart(weightedPmChartLight, 'package-manager-weighted-stats.svg');
+  writeChart(weightedPmChartDark, 'package-manager-weighted-stats-dark.svg');
+  writeChart(weightedPmChartLargeLight, 'package-manager-weighted-stats-large.svg');
+  writeChart(weightedPmChartLargeDark, 'package-manager-weighted-stats-large-dark.svg');
+}
+
+if (resultFileExists(latestDate, 'package-manager-monorepo-stats')) {
+  const monorepoStatsPath = path.join(
+    resultsDir,
+    `${latestDate}-package-manager-monorepo-stats.json`,
+  );
+  const packageManagerMonorepoStats = readJson<PackageManagerStats>(monorepoStatsPath);
+  const monorepoChartData = buildChartData(packageManagerMonorepoStats);
+  const monorepoChartOptions = {
+    title: 'Package manager usage in monorepos',
+    subtitle: formatDateLabel(latestDate),
+  } satisfies ChartOptions;
+  const monorepoChartLargeOptions = {
+    ...monorepoChartOptions,
+    width: LARGE_CHART_WIDTH,
+    layout: 'side',
+  } satisfies ChartOptions;
+  const monorepoChartLight = renderBarChart(monorepoChartData, monorepoChartOptions);
+  const monorepoChartDark = renderBarChart(monorepoChartData, monorepoChartOptions, 'dark');
+  const monorepoChartLargeLight = renderBarChart(monorepoChartData, monorepoChartLargeOptions);
+  const monorepoChartLargeDark = renderBarChart(
+    monorepoChartData,
+    monorepoChartLargeOptions,
+    'dark',
+  );
+
+  writeChart(monorepoChartLight, 'package-manager-monorepo-stats.svg');
+  writeChart(monorepoChartDark, 'package-manager-monorepo-stats-dark.svg');
+  writeChart(monorepoChartLargeLight, 'package-manager-monorepo-stats-large.svg');
+  writeChart(monorepoChartLargeDark, 'package-manager-monorepo-stats-large-dark.svg');
+}
+
+if (resultFileExists(latestDate, 'package-manager-monorepo-breakdown-stats')) {
+  const monorepoBreakdownStatsPath = path.join(
+    resultsDir,
+    `${latestDate}-package-manager-monorepo-breakdown-stats.json`,
+  );
+  const packageManagerMonorepoBreakdownStats = readJson<PackageManagerMonorepoStats>(
+    monorepoBreakdownStatsPath,
+  );
+  const monorepoRateChartData = buildMonorepoRateChartData(packageManagerMonorepoBreakdownStats);
+  const monorepoRateChartOptions = {
+    title: 'Monorepo usage by package manager',
+    subtitle: formatDateLabel(latestDate),
+  } satisfies ChartOptions;
+  const monorepoRateChartLargeOptions = {
+    ...monorepoRateChartOptions,
+    width: LARGE_CHART_WIDTH,
+    layout: 'side',
+  } satisfies ChartOptions;
+  const monorepoRateChartLight = renderBarChart(monorepoRateChartData, monorepoRateChartOptions);
+  const monorepoRateChartDark = renderBarChart(
+    monorepoRateChartData,
+    monorepoRateChartOptions,
+    'dark',
+  );
+  const monorepoRateChartLargeLight = renderBarChart(
+    monorepoRateChartData,
+    monorepoRateChartLargeOptions,
+  );
+  const monorepoRateChartLargeDark = renderBarChart(
+    monorepoRateChartData,
+    monorepoRateChartLargeOptions,
+    'dark',
+  );
+
+  writeChart(monorepoRateChartLight, 'package-manager-monorepo-rate-stats.svg');
+  writeChart(monorepoRateChartDark, 'package-manager-monorepo-rate-stats-dark.svg');
+  writeChart(monorepoRateChartLargeLight, 'package-manager-monorepo-rate-stats-large.svg');
+  writeChart(monorepoRateChartLargeDark, 'package-manager-monorepo-rate-stats-large-dark.svg');
+}
+
 const versionEntries = Object.entries(packageManagerVersionStats) as Array<
   [Exclude<PackageManager, 'unknown'>, Record<string, number>]
 >;
@@ -1195,6 +1341,54 @@ if (popularity.series.length) {
   writeChart(trendChartDark, 'package-manager-trend-dark.svg');
   writeChart(trendChartLargeLight, 'package-manager-trend-large.svg');
   writeChart(trendChartLargeDark, 'package-manager-trend-large-dark.svg');
+}
+
+if (resultFileExists(latestDate, 'package-manager-weighted-stats')) {
+  const weightedPopularity = buildPopularitySeries('package-manager-weighted-stats');
+
+  if (weightedPopularity.series.length) {
+    const firstDate = weightedPopularity.dates[0] ?? latestDate;
+    const lastDate = weightedPopularity.dates[weightedPopularity.dates.length - 1] ?? latestDate;
+    const weightedTrendOptions = {
+      title: 'Package manager popularity over time, weighted by package count',
+      subtitle: `${formatDateLabel(firstDate)} – ${formatDateLabel(lastDate)}`,
+    } satisfies LineChartOptions;
+    const weightedLargeTrendOptions = {
+      ...weightedTrendOptions,
+      width: LARGE_CHART_WIDTH,
+      layout: 'side-legend',
+    } satisfies LineChartOptions;
+
+    const weightedTrendChartLight = renderLineChart(
+      weightedPopularity.dates,
+      weightedPopularity.series,
+      weightedTrendOptions,
+      'light',
+    );
+    const weightedTrendChartDark = renderLineChart(
+      weightedPopularity.dates,
+      weightedPopularity.series,
+      weightedTrendOptions,
+      'dark',
+    );
+    const weightedTrendChartLargeLight = renderLineChart(
+      weightedPopularity.dates,
+      weightedPopularity.series,
+      weightedLargeTrendOptions,
+      'light',
+    );
+    const weightedTrendChartLargeDark = renderLineChart(
+      weightedPopularity.dates,
+      weightedPopularity.series,
+      weightedLargeTrendOptions,
+      'dark',
+    );
+
+    writeChart(weightedTrendChartLight, 'package-manager-weighted-trend.svg');
+    writeChart(weightedTrendChartDark, 'package-manager-weighted-trend-dark.svg');
+    writeChart(weightedTrendChartLargeLight, 'package-manager-weighted-trend-large.svg');
+    writeChart(weightedTrendChartLargeDark, 'package-manager-weighted-trend-large-dark.svg');
+  }
 }
 
 const corepackAdoption = buildCorepackAdoptionSeries();

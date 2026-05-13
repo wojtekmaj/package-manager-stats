@@ -1,0 +1,26 @@
+{
+  "npm": {
+    "is_monorepo": 96,
+    "is_not_monorepo": 757
+  },
+  "yarn_classic": {
+    "is_monorepo": 77,
+    "is_not_monorepo": 200
+  },
+  "yarn_modern": {
+    "is_monorepo": 68,
+    "is_not_monorepo": 32
+  },
+  "pnpm": {
+    "is_monorepo": 272,
+    "is_not_monorepo": 118
+  },
+  "bun": {
+    "is_monorepo": 37,
+    "is_not_monorepo": 27
+  },
+  "unknown": {
+    "is_monorepo": 4,
+    "is_not_monorepo": 141
+  }
+}

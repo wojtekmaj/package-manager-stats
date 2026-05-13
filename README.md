@@ -67,6 +67,58 @@ Outputs land in [charts](charts) directory. Version charts are produced only whe
 <picture>
 	<source
 		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-weighted-trend-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-weighted-trend-large.svg" />
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-weighted-trend-dark.svg"
+	/>
+	<img alt="Package manager popularity over time, weighted by package count" src="./charts/package-manager-weighted-trend.svg" />
+</picture>
+
+<picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-weighted-stats-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-weighted-stats-large.svg" />
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-weighted-stats-dark.svg"
+	/>
+	<img alt="Package manager usage, weighted by package count" src="./charts/package-manager-weighted-stats.svg" />
+</picture>
+
+<picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-monorepo-stats-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-monorepo-stats-large.svg" />
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-monorepo-stats-dark.svg"
+	/>
+	<img alt="Package manager usage in monorepos" src="./charts/package-manager-monorepo-stats.svg" />
+</picture>
+
+<picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-monorepo-rate-stats-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-monorepo-rate-stats-large.svg" />
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-monorepo-rate-stats-dark.svg"
+	/>
+	<img alt="Monorepo usage by package manager" src="./charts/package-manager-monorepo-rate-stats.svg" />
+</picture>
+
+<picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
 		srcset="./charts/package-manager-version-stats-npm-large-dark.svg"
 	/>
 	<source media="(min-width: 640px)" srcset="./charts/package-manager-version-stats-npm-large.svg" />
@@ -123,5 +175,9 @@ The dataset comes from GitHub repository search results for JavaScript and TypeS
 Calculation is simple: for each repo, the script prefers the `packageManager` field in `package.json`, then falls back to lockfile-based signals. Version charts use the best available version signal, sometimes only inferring a major version from lockfile format.
 
 Package manager trend points before March 13, 2026 estimate npm and pnpm values by applying the fixed Corepack `packageManager` parsing error ratio from the March 13, 2026 snapshot. Raw result files remain unadjusted historical snapshots.
+
+Weighted package-count charts use workspace declarations to count how many npm package roots each repository contains. The script reads `pnpm-workspace.yaml` for pnpm repositories when present, otherwise it uses the root `package.json` `workspaces` field used by npm, Yarn, and Bun. Repositories without workspace package matches count as one package.
+
+Monorepo charts use the same workspace package count. Repositories with more than one package root count as monorepos.
 
 Other methodologies are possible. If you inspect the source, you will find alternative selection rules you can try yourself.

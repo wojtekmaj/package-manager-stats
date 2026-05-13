@@ -5,5 +5,7 @@
   "uses_corepack": 509,
   "does_not_use_corepack": 1320,
   "has_lockfile": 1013,
-  "does_not_have_lockfile": 307
+  "does_not_have_lockfile": 307,
+  "is_monorepo": 554,
+  "is_not_monorepo": 1275
 }

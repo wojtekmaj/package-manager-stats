@@ -7,6 +7,22 @@ export type PackageManagerVersionStats = Record<
   Record<string, number>
 >;
 
+export type PackageManagerMonorepoStats = Record<
+  PackageManager,
+  {
+    is_monorepo: number;
+    is_not_monorepo: number;
+  }
+>;
+
+export type RepositoryTree = {
+  truncated: boolean;
+  tree: Array<{
+    path: string;
+    type: 'blob' | 'tree' | 'commit';
+  }>;
+};
+
 export type SearchResult = {
   full_name: string;
   url: string;
