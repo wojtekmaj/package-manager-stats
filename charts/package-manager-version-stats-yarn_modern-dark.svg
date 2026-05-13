@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="Yarn (Berry) versions">
+<svg xmlns="http://www.w3.org/2000/svg" width="838" height="204" viewBox="0 0 838 204" role="img" aria-label="Yarn (Berry) versions">
   <style>
     text { font-family: "Helvetica Neue", Arial, sans-serif; }
     .title { font-size: 20px; font-weight: 700; fill: #e2e8f0; }
@@ -7,4 +7,4 @@
     .label { font-size: 12px; text-anchor: end; fill: #e2e8f0; }
     .value { font-size: 12px; fill: #e2e8f0; }
   </style>
-<text class="title" x="16" y="24">Yarn (Berry) versions</text><text class="subtitle" x="16" y="42">5/13/2026</text><g class="bars"><g class="bar" data-label="4"><text class="label" x="100" y="78" dominant-baseline="middle">4</text><rect x="110" y="64" width="470" height="28" rx="6" fill="#7c6ff6" /><text class="value" x="588" y="78" dominant-baseline="middle">80 (80.0%)</text></g><g class="bar" data-label="3"><text class="label" x="100" y="118" dominant-baseline="middle">3</text><rect x="110" y="104" width="117.5" height="28" rx="6" fill="#7c6ff6" /><text class="value" x="235.5" y="118" dominant-baseline="middle">20 (20.0%)</text></g></g></svg>
+<text class="title" x="16" y="24">Yarn (Berry) versions</text><text class="subtitle" x="16" y="42">5/13/2026</text><g class="bars"><g class="bar" data-label="4"><text class="label" x="100" y="86" dominant-baseline="middle">4</text><rect x="110" y="72" width="568" height="28" rx="6" fill="#7c6ff6" /><text class="value" x="686" y="86" dominant-baseline="middle">80 (80.0%)</text></g><g class="bar" data-label="3"><text class="label" x="100" y="134" dominant-baseline="middle">3</text><rect x="110" y="120" width="142" height="28" rx="6" fill="#7c6ff6" /><text class="value" x="260" y="134" dominant-baseline="middle">20 (20.0%)</text></g></g></svg>

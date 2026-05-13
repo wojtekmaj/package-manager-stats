@@ -15,6 +15,9 @@ const chartsDir = path.join(rootDir, 'charts');
 
 fs.mkdirSync(chartsDir, { recursive: true });
 
+const CHART_WIDTH = 838;
+const LINE_CHART_HEIGHT = 489;
+
 type ChartDatum = {
   label: string;
   value: number;
@@ -396,10 +399,10 @@ function renderBarChart(
   const escapedTitle = escapeXml(title);
   const escapedSubtitle = subtitle ? escapeXml(subtitle) : undefined;
   const escapedFooter = footer ? escapeXml(footer) : undefined;
-  const width = options.width ?? 720;
+  const width = options.width ?? CHART_WIDTH;
   const barHeight = options.barHeight ?? 28;
-  const barGap = options.barGap ?? 12;
-  const margin = options.margin ?? { top: 64, right: 140, bottom: 48, left: 110 };
+  const barGap = options.barGap ?? 20;
+  const margin = options.margin ?? { top: 72, right: 160, bottom: 56, left: 110 };
   const titleX = 16;
   const subtitleX = 16;
   const titleY = 24;
@@ -696,8 +699,8 @@ function renderLineChart(
   const escapedTitle = escapeXml(options.title);
   const escapedSubtitle = options.subtitle ? escapeXml(options.subtitle) : undefined;
   const escapedFooter = options.footer ? escapeXml(options.footer) : undefined;
-  const width = options.width ?? 720;
-  const height = options.height ?? 420;
+  const width = options.width ?? CHART_WIDTH;
+  const height = options.height ?? LINE_CHART_HEIGHT;
   const estimatedTickLabelWidth = Math.max(...dates.map((date) => date.length), 0) * 7;
   const baseInnerWidth = width - 64 - 120;
   const dateTimestamps = dates.map(parseDateTimestamp);
