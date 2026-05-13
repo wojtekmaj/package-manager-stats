@@ -157,7 +157,7 @@ export async function checkIfFileExists(url: string): Promise<boolean> {
     }
   }
 
-  const response = await fetch(url, { method: 'HEAD' });
+  const response = await pRetry(() => fetch(url, { method: 'HEAD' }));
 
   if (!response.ok) {
     if (response.status === 404) {
