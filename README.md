@@ -45,31 +45,73 @@ Outputs land in [charts](charts) directory. Version charts are produced only whe
 ## Charts
 
 <picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-trend-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-trend-large.svg" />
 	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-trend-dark.svg" />
 	<img alt="Package manager popularity over time" src="./charts/package-manager-trend.svg" />
 </picture>
 
 <picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-stats-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-stats-large.svg" />
 	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-stats-dark.svg" />
 	<img alt="Package manager usage" src="./charts/package-manager-stats.svg" />
 </picture>
 
 <picture>
-	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-npm-dark.svg" />
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-version-stats-npm-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-version-stats-npm-large.svg" />
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-version-stats-npm-dark.svg"
+	/>
 	<img alt="npm versions" src="./charts/package-manager-version-stats-npm.svg" />
 </picture>
 
 <picture>
-	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-pnpm-dark.svg" />
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-version-stats-pnpm-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/package-manager-version-stats-pnpm-large.svg" />
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-version-stats-pnpm-dark.svg"
+	/>
 	<img alt="pnpm versions" src="./charts/package-manager-version-stats-pnpm.svg" />
 </picture>
 
 <picture>
-	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-yarn_modern-dark.svg" />
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/package-manager-version-stats-yarn_modern-large-dark.svg"
+	/>
+	<source
+		media="(min-width: 640px)"
+		srcset="./charts/package-manager-version-stats-yarn_modern-large.svg"
+	/>
+	<source
+		media="(prefers-color-scheme: dark)"
+		srcset="./charts/package-manager-version-stats-yarn_modern-dark.svg"
+	/>
 	<img alt="Yarn (Berry) versions" src="./charts/package-manager-version-stats-yarn_modern.svg" />
 </picture>
 
 <picture>
+	<source
+		media="(prefers-color-scheme: dark) and (min-width: 640px)"
+		srcset="./charts/corepack-adoption-trend-large-dark.svg"
+	/>
+	<source media="(min-width: 640px)" srcset="./charts/corepack-adoption-trend-large.svg" />
 	<source media="(prefers-color-scheme: dark)" srcset="./charts/corepack-adoption-trend-dark.svg" />
 	<img alt="Corepack and Yarn Switch adoption over time" src="./charts/corepack-adoption-trend.svg" />
 </picture>

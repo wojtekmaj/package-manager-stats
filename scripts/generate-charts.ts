@@ -15,8 +15,12 @@ const chartsDir = path.join(rootDir, 'charts');
 
 fs.mkdirSync(chartsDir, { recursive: true });
 
-const CHART_WIDTH = 838;
+const CHART_WIDTH = 324;
+const LARGE_CHART_WIDTH = 838;
 const LINE_CHART_HEIGHT = 489;
+
+type BarChartLayout = 'stacked' | 'side';
+type LineChartLayout = 'top-legend' | 'side-legend';
 
 type ChartDatum = {
   label: string;
@@ -60,6 +64,7 @@ type ChartOptions = {
   subtitle?: string;
   footer?: string;
   width?: number;
+  layout?: BarChartLayout;
   barHeight?: number;
   barGap?: number;
   margin?: {
@@ -68,6 +73,15 @@ type ChartOptions = {
     bottom: number;
     left: number;
   };
+};
+
+type LineChartOptions = {
+  title: string;
+  subtitle?: string;
+  footer?: string;
+  width?: number;
+  height?: number;
+  layout?: LineChartLayout;
 };
 
 type ThemeName = 'light' | 'dark';
@@ -193,6 +207,83 @@ function escapeXml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function estimateTextWidth(value: string, fontSize = 12): number {
+  return value.length * fontSize * 0.58;
+}
+
+type TextWidthEstimator = (value: string, fontSize: number) => number;
+
+function estimateTitleTextWidth(value: string, fontSize = 16): number {
+  return Array.from(value).reduce((sum, character) => {
+    if (character === ' ') {
+      return sum + fontSize * 0.28;
+    }
+
+    if (/[A-Z]/.test(character)) {
+      return sum + fontSize * 0.62;
+    }
+
+    if (/[a-z0-9]/.test(character)) {
+      return sum + fontSize * 0.5;
+    }
+
+    return sum + fontSize * 0.34;
+  }, 0);
+}
+
+function wrapText(
+  value: string,
+  maxWidth: number,
+  fontSize = 12,
+  estimateWidth: TextWidthEstimator = estimateTextWidth,
+): string[] {
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  words.forEach((word) => {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+
+    if (currentLine && estimateWidth(nextLine, fontSize) > maxWidth) {
+      lines.push(currentLine);
+      currentLine = word;
+      return;
+    }
+
+    currentLine = nextLine;
+  });
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines.length ? lines : [''];
+}
+
+function renderMultilineText({
+  className,
+  x,
+  y,
+  lines,
+  lineHeight,
+}: {
+  className: string;
+  x: number;
+  y: number;
+  lines: string[];
+  lineHeight: number;
+}): string {
+  const [firstLine = '', ...remainingLines] = lines;
+  const tspans = [
+    escapeXml(firstLine),
+    ...remainingLines.map((line) => {
+      return `<tspan x="${x}" dy="${lineHeight}">${escapeXml(line)}</tspan>`;
+    }),
+  ].join('');
+
+  return `<text class="${className}" x="${x}" y="${y}">${tspans}</text>`;
 }
 
 function buildChartData(stats: PackageManagerStats): ChartDatum[] {
@@ -400,15 +491,29 @@ function renderBarChart(
   const escapedSubtitle = subtitle ? escapeXml(subtitle) : undefined;
   const escapedFooter = footer ? escapeXml(footer) : undefined;
   const width = options.width ?? CHART_WIDTH;
-  const barHeight = options.barHeight ?? 28;
-  const barGap = options.barGap ?? 20;
-  const margin = options.margin ?? { top: 72, right: 160, bottom: 56, left: 110 };
+  const layout = options.layout ?? 'stacked';
+  const isStackedLayout = layout === 'stacked';
+  const titleFontSize = isStackedLayout ? 16 : 20;
+  const titleLineHeight = isStackedLayout ? 18 : 22;
   const titleX = 16;
   const subtitleX = 16;
   const titleY = 24;
-  const subtitleY = 42;
+  const titleLines = wrapText(title, width - titleX * 2, titleFontSize, estimateTitleTextWidth);
+  const titleBlockExtraHeight = (titleLines.length - 1) * titleLineHeight;
+  const subtitleY = 42 + titleBlockExtraHeight;
+  const barHeight = options.barHeight ?? 28;
+  const barGap = options.barGap ?? (isStackedLayout ? 24 : 20);
+  const baseMargin =
+    options.margin ??
+    (isStackedLayout
+      ? { top: 72, right: 16, bottom: 56, left: 16 }
+      : { top: 72, right: 160, bottom: 56, left: 110 });
+  const margin = { ...baseMargin, top: baseMargin.top + titleBlockExtraHeight };
   const footerX = titleX;
-  const footerSpace = footer ? 16 : 0;
+  const footerLines =
+    footer && isStackedLayout ? wrapText(footer, width - margin.left - margin.right, 12) : [];
+  const footerSpace = footer ? (isStackedLayout ? footerLines.length * 16 : 16) : 0;
+  const labelRowHeight = 18;
   const miniBarHeight = 11;
   const miniBarOffset = 6;
   const miniBarLabelMinWidth = 22;
@@ -441,7 +546,11 @@ function renderBarChart(
   }
 
   function getDatumHeight(datum: ChartDatum): number {
-    return hasRenderableMiniSegments(datum) ? barHeight + miniBarOffset + miniBarHeight : barHeight;
+    const barStackHeight = hasRenderableMiniSegments(datum)
+      ? barHeight + miniBarOffset + miniBarHeight
+      : barHeight;
+
+    return isStackedLayout ? labelRowHeight + barStackHeight : barStackHeight;
   }
 
   const barsHeight = data.reduce((sum, datum, index) => {
@@ -458,16 +567,24 @@ function renderBarChart(
     `
   <style>
     text { font-family: "Helvetica Neue", Arial, sans-serif; }
-    .title { font-size: 20px; font-weight: 700; fill: ${theme.text}; }
+    .title { font-size: ${titleFontSize}px; font-weight: 700; fill: ${theme.text}; }
     .subtitle { font-size: 12px; fill: ${theme.subtitle}; }
     .footer { font-size: 12px; fill: ${theme.footer}; }
-    .label { font-size: 12px; text-anchor: end; fill: ${theme.label}; }
+    .label { font-size: 12px; ${isStackedLayout ? '' : 'text-anchor: end; '}fill: ${theme.label}; }
     .value { font-size: 12px; fill: ${theme.value}; }
   </style>
 `,
   );
 
-  svgParts.push(`<text class="title" x="${titleX}" y="${titleY}">${escapedTitle}</text>`);
+  svgParts.push(
+    renderMultilineText({
+      className: 'title',
+      x: titleX,
+      y: titleY,
+      lines: titleLines,
+      lineHeight: titleLineHeight,
+    }),
+  );
 
   if (escapedSubtitle) {
     svgParts.push(
@@ -480,6 +597,8 @@ function renderBarChart(
 
   data.forEach((datum, index) => {
     const y = currentY;
+    const labelY = isStackedLayout ? y : y + barHeight / 2;
+    const barY = isStackedLayout ? y + labelRowHeight : y;
     const barWidth = getBarWidth(datum);
     const ratio = total ? datum.value / total : 0;
     const percentText = formatPercent(ratio);
@@ -488,14 +607,20 @@ function renderBarChart(
     const hasMiniSegments = hasRenderableMiniSegments(datum);
     const escapedLabel = escapeXml(datum.label);
 
-    const groupParts = [
-      `<text class="label" x="${margin.left - 10}" y="${y + barHeight / 2}" dominant-baseline="middle">${escapedLabel}</text>`,
-      `<rect x="${margin.left}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="${barColor}" />`,
-      `<text class="value" x="${margin.left + barWidth + 8}" y="${y + barHeight / 2}" dominant-baseline="middle">${valueLabel}</text>`,
-    ];
+    const groupParts = isStackedLayout
+      ? [
+          `<text class="label" x="${margin.left}" y="${labelY}" text-anchor="start" dominant-baseline="middle">${escapedLabel}</text>`,
+          `<text class="value" x="${width - margin.right}" y="${labelY}" text-anchor="end" dominant-baseline="middle">${valueLabel}</text>`,
+          `<rect x="${margin.left}" y="${barY}" width="${barWidth}" height="${barHeight}" rx="6" fill="${barColor}" />`,
+        ]
+      : [
+          `<text class="label" x="${margin.left - 10}" y="${y + barHeight / 2}" dominant-baseline="middle">${escapedLabel}</text>`,
+          `<rect x="${margin.left}" y="${barY}" width="${barWidth}" height="${barHeight}" rx="6" fill="${barColor}" />`,
+          `<text class="value" x="${margin.left + barWidth + 8}" y="${y + barHeight / 2}" dominant-baseline="middle">${valueLabel}</text>`,
+        ];
 
     if (hasMiniSegments) {
-      const miniY = y + barHeight + miniBarOffset;
+      const miniY = barY + barHeight + miniBarOffset;
       const clipId = `mini-bar-${themeName}-${index}-${(datum.rawLabel ?? datum.label)
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')}`;
@@ -556,8 +681,21 @@ function renderBarChart(
   svgParts.push(`<g class="bars">${barsGroup.join('')}</g>`);
 
   if (escapedFooter) {
-    const footerY = chartHeight - margin.bottom + (footerSpace ? footerSpace - 8 : 0);
-    svgParts.push(`<text class="footer" x="${footerX}" y="${footerY}">${escapedFooter}</text>`);
+    if (isStackedLayout) {
+      const footerY = chartHeight - margin.bottom + 8;
+      svgParts.push(
+        renderMultilineText({
+          className: 'footer',
+          x: footerX,
+          y: footerY,
+          lines: footerLines,
+          lineHeight: 14,
+        }),
+      );
+    } else {
+      const footerY = chartHeight - margin.bottom + (footerSpace ? footerSpace - 8 : 0);
+      svgParts.push(`<text class="footer" x="${footerX}" y="${footerY}">${escapedFooter}</text>`);
+    }
   }
 
   svgParts.push('</svg>');
@@ -692,7 +830,7 @@ function buildCorepackAdoptionSeries(): { dates: string[]; series: LineSeries[] 
 function renderLineChart(
   dates: string[],
   series: LineSeries[],
-  options: { title: string; subtitle?: string; footer?: string; width?: number; height?: number },
+  options: LineChartOptions,
   themeName: ThemeName = 'light',
 ): string {
   const theme = THEMES[themeName];
@@ -701,8 +839,42 @@ function renderLineChart(
   const escapedFooter = options.footer ? escapeXml(options.footer) : undefined;
   const width = options.width ?? CHART_WIDTH;
   const height = options.height ?? LINE_CHART_HEIGHT;
+  const layout = options.layout ?? 'top-legend';
+  const hasTopLegend = layout === 'top-legend';
+  const titleFontSize = hasTopLegend ? 16 : 20;
+  const titleLineHeight = hasTopLegend ? 18 : 22;
+  const titleX = 16;
+  const subtitleX = 16;
+  const titleY = 24;
+  const titleLines = wrapText(
+    options.title,
+    width - titleX * 2,
+    titleFontSize,
+    estimateTitleTextWidth,
+  );
+  const titleBlockExtraHeight = (titleLines.length - 1) * titleLineHeight;
+  const subtitleY = 42 + titleBlockExtraHeight;
+  const legendItemWidths = series.map((entry) => 18 + estimateTextWidth(entry.label) + 14);
+  const legendRows: Array<Array<{ entry: LineSeries; width: number }>> = [];
+  const legendAvailableWidth = width - 32;
+
+  if (hasTopLegend) {
+    series.forEach((entry, index) => {
+      const itemWidth = legendItemWidths[index] ?? 0;
+      const lastRow = legendRows.at(-1);
+      const lastRowWidth = lastRow?.reduce((sum, item) => sum + item.width, 0) ?? 0;
+
+      if (lastRow && lastRowWidth + itemWidth <= legendAvailableWidth) {
+        lastRow.push({ entry, width: itemWidth });
+        return;
+      }
+
+      legendRows.push([{ entry, width: itemWidth }]);
+    });
+  }
+
   const estimatedTickLabelWidth = Math.max(...dates.map((date) => date.length), 0) * 7;
-  const baseInnerWidth = width - 64 - 120;
+  const baseInnerWidth = width - 64 - (hasTopLegend ? 16 : 120);
   const dateTimestamps = dates.map(parseDateTimestamp);
   const minDateTimestamp = Math.min(...dateTimestamps);
   const maxDateTimestamp = Math.max(...dateTimestamps);
@@ -719,17 +891,16 @@ function renderLineChart(
         )
       : baseInnerWidth;
   const shouldRotateXTicks = dates.length > 1 && estimatedTickLabelWidth > estimatedXStep * 0.9;
-  const footerSpace = escapedFooter ? 20 : 0;
+  const footerLines =
+    options.footer && hasTopLegend ? wrapText(options.footer, width - 32, 12) : [];
+  const footerSpace = escapedFooter ? (hasTopLegend ? footerLines.length * 16 : 20) : 0;
+  const legendHeight = hasTopLegend ? legendRows.length * 20 + 24 : 0;
   const margin = {
-    top: 72,
-    right: 120,
+    top: 72 + titleBlockExtraHeight + legendHeight,
+    right: hasTopLegend ? 16 : 120,
     bottom: (shouldRotateXTicks ? 96 : 64) + footerSpace,
     left: 64,
   };
-  const titleX = 16;
-  const subtitleX = 16;
-  const titleY = 24;
-  const subtitleY = 42;
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -759,7 +930,7 @@ function renderLineChart(
     `
   <style>
     text { font-family: "Helvetica Neue", Arial, sans-serif; }
-    .title { font-size: 20px; font-weight: 700; fill: ${theme.text}; }
+    .title { font-size: ${titleFontSize}px; font-weight: 700; fill: ${theme.text}; }
     .subtitle { font-size: 12px; fill: ${theme.subtitle}; }
     .axis { stroke: ${theme.axis}; stroke-width: 1; }
     .footer { font-size: 12px; fill: ${theme.footer}; }
@@ -769,7 +940,15 @@ function renderLineChart(
 `,
   );
 
-  svgParts.push(`<text class="title" x="${titleX}" y="${titleY}">${escapedTitle}</text>`);
+  svgParts.push(
+    renderMultilineText({
+      className: 'title',
+      x: titleX,
+      y: titleY,
+      lines: titleLines,
+      lineHeight: titleLineHeight,
+    }),
+  );
   if (escapedSubtitle) {
     svgParts.push(
       `<text class="subtitle" x="${subtitleX}" y="${subtitleY}">${escapedSubtitle}</text>`,
@@ -791,7 +970,26 @@ function renderLineChart(
   svgParts.push(`<g class="y-ticks">${yTicksGroup.join('')}</g>`);
 
   const xTicksGroup: string[] = [];
+  const visibleDateIndexes = new Set<number>();
+  const maxVisibleDateTicks = hasTopLegend
+    ? Math.max(2, Math.floor(innerWidth / (estimatedTickLabelWidth * 0.7 || 1)))
+    : dates.length;
+
+  if (dates.length <= maxVisibleDateTicks) {
+    dates.forEach((_date, index) => {
+      visibleDateIndexes.add(index);
+    });
+  } else {
+    for (let index = 0; index < maxVisibleDateTicks; index++) {
+      visibleDateIndexes.add(Math.round((index * (dates.length - 1)) / (maxVisibleDateTicks - 1)));
+    }
+  }
+
   dates.forEach((date, index) => {
+    if (!visibleDateIndexes.has(index)) {
+      return;
+    }
+
     const x = getX(index);
     const tickLabel = escapeXml(formatDateLabel(date));
 
@@ -837,22 +1035,50 @@ function renderLineChart(
 
   svgParts.push(`<g class="series-group">${seriesGroup.join('')}</g>`);
 
-  const legendOffset = 32;
-  const legendX = width - margin.right + legendOffset;
-  const legendY = margin.top;
   const legendGroup: string[] = [];
-  series.forEach((entry, index) => {
-    const seriesColor = resolveColor(entry.color, themeName);
-    const y = legendY + index * 20;
-    legendGroup.push(
-      `<g class="legend-item" data-key="${entry.key}"><rect x="${legendX}" y="${y - 10}" width="12" height="12" rx="2" fill="${seriesColor}" /><text class="legend" x="${legendX + 18}" y="${y}" dominant-baseline="middle">${escapeXml(entry.label)}</text></g>`,
-    );
-  });
+  if (hasTopLegend) {
+    legendRows.forEach((row, rowIndex) => {
+      let x = 16;
+      const y = 72 + titleBlockExtraHeight + rowIndex * 20;
+
+      row.forEach(({ entry, width: itemWidth }) => {
+        const seriesColor = resolveColor(entry.color, themeName);
+        legendGroup.push(
+          `<g class="legend-item" data-key="${entry.key}"><rect x="${x}" y="${y - 10}" width="12" height="12" rx="2" fill="${seriesColor}" /><text class="legend" x="${x + 18}" y="${y}" dominant-baseline="middle">${escapeXml(entry.label)}</text></g>`,
+        );
+        x += itemWidth;
+      });
+    });
+  } else {
+    const legendOffset = 32;
+    const legendX = width - margin.right + legendOffset;
+    const legendY = margin.top;
+
+    series.forEach((entry, index) => {
+      const seriesColor = resolveColor(entry.color, themeName);
+      const y = legendY + index * 20;
+      legendGroup.push(
+        `<g class="legend-item" data-key="${entry.key}"><rect x="${legendX}" y="${y - 10}" width="12" height="12" rx="2" fill="${seriesColor}" /><text class="legend" x="${legendX + 18}" y="${y}" dominant-baseline="middle">${escapeXml(entry.label)}</text></g>`,
+      );
+    });
+  }
 
   svgParts.push(`<g class="legend-group">${legendGroup.join('')}</g>`);
 
   if (escapedFooter) {
-    svgParts.push(`<text class="footer" x="16" y="${height - 16}">${escapedFooter}</text>`);
+    if (hasTopLegend) {
+      svgParts.push(
+        renderMultilineText({
+          className: 'footer',
+          x: 16,
+          y: height - footerLines.length * 14,
+          lines: footerLines,
+          lineHeight: 14,
+        }),
+      );
+    } else {
+      svgParts.push(`<text class="footer" x="16" y="${height - 16}">${escapedFooter}</text>`);
+    }
   }
 
   svgParts.push('</svg>');
@@ -869,21 +1095,24 @@ const packageManagerStats = readJson<PackageManagerStats>(statsPath);
 const packageManagerVersionStats = readJson<PackageManagerVersionStats>(versionStatsPath);
 
 const pmChartData = buildChartData(packageManagerStats);
-const pmChartLight = renderBarChart(pmChartData, {
+const pmChartOptions = {
   title: 'Package manager usage',
   subtitle: formatDateLabel(latestDate),
-});
-const pmChartDark = renderBarChart(
-  pmChartData,
-  {
-    title: 'Package manager usage',
-    subtitle: formatDateLabel(latestDate),
-  },
-  'dark',
-);
+} satisfies ChartOptions;
+const pmChartLargeOptions = {
+  ...pmChartOptions,
+  width: LARGE_CHART_WIDTH,
+  layout: 'side',
+} satisfies ChartOptions;
+const pmChartLight = renderBarChart(pmChartData, pmChartOptions);
+const pmChartDark = renderBarChart(pmChartData, pmChartOptions, 'dark');
+const pmChartLargeLight = renderBarChart(pmChartData, pmChartLargeOptions);
+const pmChartLargeDark = renderBarChart(pmChartData, pmChartLargeOptions, 'dark');
 
 writeChart(pmChartLight, 'package-manager-stats.svg');
 writeChart(pmChartDark, 'package-manager-stats-dark.svg');
+writeChart(pmChartLargeLight, 'package-manager-stats-large.svg');
+writeChart(pmChartLargeDark, 'package-manager-stats-large-dark.svg');
 
 const versionEntries = Object.entries(packageManagerVersionStats) as Array<
   [Exclude<PackageManager, 'unknown'>, Record<string, number>]
@@ -908,12 +1137,22 @@ versionEntries.forEach(([pm, stats]) => {
       : undefined,
   } satisfies ChartOptions;
 
+  const largeOptions = {
+    ...baseOptions,
+    width: LARGE_CHART_WIDTH,
+    layout: 'side',
+  } satisfies ChartOptions;
+
   const chartLight = renderBarChart(chartData, baseOptions, 'light');
   const chartDark = renderBarChart(chartData, baseOptions, 'dark');
+  const chartLargeLight = renderBarChart(chartData, largeOptions, 'light');
+  const chartLargeDark = renderBarChart(chartData, largeOptions, 'dark');
 
   const safeKey = pm.replace(/[^a-z0-9_]+/gi, '_');
   writeChart(chartLight, `package-manager-version-stats-${safeKey}.svg`);
   writeChart(chartDark, `package-manager-version-stats-${safeKey}-dark.svg`);
+  writeChart(chartLargeLight, `package-manager-version-stats-${safeKey}-large.svg`);
+  writeChart(chartLargeDark, `package-manager-version-stats-${safeKey}-large-dark.svg`);
 });
 
 const popularity = buildPopularitySeries();
@@ -925,7 +1164,12 @@ if (popularity.series.length) {
     title: 'Package manager popularity over time',
     subtitle: `${formatDateLabel(firstDate)} – ${formatDateLabel(lastDate)}`,
     footer: '* npm & pnpm values before 3/13/2026 are corrected estimates',
-  } as const;
+  } satisfies LineChartOptions;
+  const largeTrendOptions = {
+    ...trendOptions,
+    width: LARGE_CHART_WIDTH,
+    layout: 'side-legend',
+  } satisfies LineChartOptions;
 
   const trendChartLight = renderLineChart(
     popularity.dates,
@@ -934,9 +1178,23 @@ if (popularity.series.length) {
     'light',
   );
   const trendChartDark = renderLineChart(popularity.dates, popularity.series, trendOptions, 'dark');
+  const trendChartLargeLight = renderLineChart(
+    popularity.dates,
+    popularity.series,
+    largeTrendOptions,
+    'light',
+  );
+  const trendChartLargeDark = renderLineChart(
+    popularity.dates,
+    popularity.series,
+    largeTrendOptions,
+    'dark',
+  );
 
   writeChart(trendChartLight, 'package-manager-trend.svg');
   writeChart(trendChartDark, 'package-manager-trend-dark.svg');
+  writeChart(trendChartLargeLight, 'package-manager-trend-large.svg');
+  writeChart(trendChartLargeDark, 'package-manager-trend-large-dark.svg');
 }
 
 const corepackAdoption = buildCorepackAdoptionSeries();
@@ -947,7 +1205,12 @@ if (corepackAdoption.series.length) {
   const corepackOptions = {
     title: 'Corepack & Yarn Switch adoption',
     subtitle: `${formatDateLabel(firstDate)} – ${formatDateLabel(lastDate)}`,
-  } as const;
+  } satisfies LineChartOptions;
+  const largeCorepackOptions = {
+    ...corepackOptions,
+    width: LARGE_CHART_WIDTH,
+    layout: 'side-legend',
+  } satisfies LineChartOptions;
 
   const corepackChartLight = renderLineChart(
     corepackAdoption.dates,
@@ -961,7 +1224,21 @@ if (corepackAdoption.series.length) {
     corepackOptions,
     'dark',
   );
+  const corepackChartLargeLight = renderLineChart(
+    corepackAdoption.dates,
+    corepackAdoption.series,
+    largeCorepackOptions,
+    'light',
+  );
+  const corepackChartLargeDark = renderLineChart(
+    corepackAdoption.dates,
+    corepackAdoption.series,
+    largeCorepackOptions,
+    'dark',
+  );
 
   writeChart(corepackChartLight, 'corepack-adoption-trend.svg');
   writeChart(corepackChartDark, 'corepack-adoption-trend-dark.svg');
+  writeChart(corepackChartLargeLight, 'corepack-adoption-trend-large.svg');
+  writeChart(corepackChartLargeDark, 'corepack-adoption-trend-large-dark.svg');
 }

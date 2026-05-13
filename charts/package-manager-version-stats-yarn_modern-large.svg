@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="838" height="204" viewBox="0 0 838 204" role="img" aria-label="Yarn (Berry) versions">
+  <style>
+    text { font-family: "Helvetica Neue", Arial, sans-serif; }
+    .title { font-size: 20px; font-weight: 700; fill: #0f172a; }
+    .subtitle { font-size: 12px; fill: #475569; }
+    .footer { font-size: 12px; fill: #94a3b8; }
+    .label { font-size: 12px; text-anchor: end; fill: #0f172a; }
+    .value { font-size: 12px; fill: #0f172a; }
+  </style>
+<text class="title" x="16" y="24">Yarn (Berry) versions</text><text class="subtitle" x="16" y="42">5/13/2026</text><g class="bars"><g class="bar" data-label="4"><text class="label" x="100" y="86" dominant-baseline="middle">4</text><rect x="110" y="72" width="568" height="28" rx="6" fill="#2f2a68" /><text class="value" x="686" y="86" dominant-baseline="middle">80 (80.0%)</text></g><g class="bar" data-label="3"><text class="label" x="100" y="134" dominant-baseline="middle">3</text><rect x="110" y="120" width="142" height="28" rx="6" fill="#2f2a68" /><text class="value" x="260" y="134" dominant-baseline="middle">20 (20.0%)</text></g></g></svg>
