@@ -231,7 +231,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     const lockfileVersionToNpmVersionMap: Record<string, string> = {
       '1': '5_or_6', // ^5.0.0 || ^6.0.0
       '2': '7_or_8', // ^7.0.0 || ^8.0.0
-      '3': '9_or_10_or_11', // ^9.0.0 || ^10.0.0
+      '3': '9_or_10_or_11', // ^9.0.0 || ^10.0.0 || ^11.0.0
     };
 
     const npmVersion = lockfileVersionToNpmVersionMap[packageLockJsonVersion] ?? 'unknown';
@@ -359,7 +359,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       return;
     }
 
-    // https://github.com/pnpm/pnpm/blob/main/packages/constants/src/index.ts
+    // https://github.com/pnpm/pnpm/blob/main/core/constants/src/index.ts
     const lockfileVersionToPnpmVersionMap: Record<string, string> = {
       '5': '3', // ^3.0.0
       '5.1': '3_or_4_or_5', // ^3.5.0 || ^4.0.0 || ^5.0.0
@@ -369,7 +369,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       '6.0': '8', // Opt-in in ^7.24.0, default in ^8.0.0 - assuming ^8.0.0
       '6.1': '9', // v9.0.0-alpha.5
       '7.0': '9', // v9.0.0-alpha.5
-      '9.0': '9_or_10',
+      '9.0': '9_or_10_or_11',
     };
 
     const pnpmVersion = lockfileVersionToPnpmVersionMap[lockfileVersion] ?? 'unknown';
