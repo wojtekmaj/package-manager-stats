@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { styleText } from 'node:util';
-import pRetry from 'p-retry';
+import pRetry, { AbortError } from 'p-retry';
 
 import { CACHE_DIR, GITHUB_API_URL, MAX_PAGES, QUERY } from './constants.ts';
 import { log } from './logger.ts';
@@ -68,6 +68,10 @@ export async function fetchWithCache(input: string | URL, init?: RequestInit): P
   const response = await pRetry(() =>
     fetch(input, init).then((response) => {
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new AbortError(`Network error ${response.status}: ${response.statusText}`);
+        }
+
         throw new Error(`Network error ${response.status}: ${response.statusText}`);
       }
 
