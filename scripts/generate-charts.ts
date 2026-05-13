@@ -626,7 +626,10 @@ function buildPopularitySeries(): { dates: string[]; series: LineSeries[] } {
         values,
       } satisfies LineSeries;
     })
-    .filter((series) => series.values.some((value) => value > 0));
+    .filter((series) => series.values.some((value) => value > 0))
+    .sort((a, b) => {
+      return (b.values.at(-1) ?? 0) - (a.values.at(-1) ?? 0);
+    });
 
   return { dates, series };
 }

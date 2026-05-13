@@ -60,13 +60,13 @@ Outputs land in [charts](charts) directory. Version charts are produced only whe
 </picture>
 
 <picture>
-	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-yarn_modern-dark.svg" />
-	<img alt="Yarn (Berry) versions" src="./charts/package-manager-version-stats-yarn_modern.svg" />
+	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-pnpm-dark.svg" />
+	<img alt="pnpm versions" src="./charts/package-manager-version-stats-pnpm.svg" />
 </picture>
 
 <picture>
-	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-pnpm-dark.svg" />
-	<img alt="pnpm versions" src="./charts/package-manager-version-stats-pnpm.svg" />
+	<source media="(prefers-color-scheme: dark)" srcset="./charts/package-manager-version-stats-yarn_modern-dark.svg" />
+	<img alt="Yarn (Berry) versions" src="./charts/package-manager-version-stats-yarn_modern.svg" />
 </picture>
 
 <picture>
