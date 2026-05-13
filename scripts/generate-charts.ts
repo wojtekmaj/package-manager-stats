@@ -364,6 +364,25 @@ function formatDateLabel(date: string): string {
   }).format(new Date(date));
 }
 
+function parseDateTimestamp(date: string): number {
+  const tokens = date.split('-');
+
+  if (tokens.length !== 3) {
+    throw new Error(`Invalid date: ${date}`);
+  }
+
+  const [yearToken, monthToken, dayToken] = tokens as [string, string, string];
+  const year = Number.parseInt(yearToken, 10);
+  const month = Number.parseInt(monthToken, 10);
+  const day = Number.parseInt(dayToken, 10);
+
+  if (!year || !month || !day) {
+    throw new Error(`Invalid date: ${date}`);
+  }
+
+  return Date.UTC(year, month - 1, day);
+}
+
 function renderBarChart(
   data: ChartDatum[],
   options: ChartOptions,
@@ -646,7 +665,21 @@ function renderLineChart(
   const height = options.height ?? 420;
   const estimatedTickLabelWidth = Math.max(...dates.map((date) => date.length), 0) * 7;
   const baseInnerWidth = width - 64 - 120;
-  const estimatedXStep = dates.length > 1 ? baseInnerWidth / (dates.length - 1) : baseInnerWidth;
+  const dateTimestamps = dates.map(parseDateTimestamp);
+  const minDateTimestamp = Math.min(...dateTimestamps);
+  const maxDateTimestamp = Math.max(...dateTimestamps);
+  const dateRange = maxDateTimestamp - minDateTimestamp;
+  const estimatedXStep =
+    dateTimestamps.length > 1
+      ? Math.min(
+          ...dateTimestamps.slice(1).map((timestamp, index) => {
+            const previousTimestamp = dateTimestamps[index] ?? timestamp;
+            return dateRange > 0
+              ? ((timestamp - previousTimestamp) / dateRange) * baseInnerWidth
+              : baseInnerWidth;
+          }),
+        )
+      : baseInnerWidth;
   const shouldRotateXTicks = dates.length > 1 && estimatedTickLabelWidth > estimatedXStep * 0.9;
   const margin = { top: 72, right: 120, bottom: shouldRotateXTicks ? 96 : 64, left: 64 };
   const titleX = 16;
@@ -660,7 +693,19 @@ function renderLineChart(
   const maxValue = flatValues.length ? Math.max(...flatValues) : 0;
   const yMax = Math.max(20, Math.ceil(maxValue / 20) * 20 || 20);
 
-  const xStep = dates.length > 1 ? innerWidth / (dates.length - 1) : 0;
+  function getX(index: number): number {
+    if (dateTimestamps.length <= 1 || dateRange === 0) {
+      return margin.left;
+    }
+
+    const timestamp = dateTimestamps[index];
+
+    if (timestamp === undefined) {
+      throw new Error(`Missing date timestamp for index ${index}`);
+    }
+
+    return margin.left + ((timestamp - minDateTimestamp) / dateRange) * innerWidth;
+  }
 
   const svgParts: string[] = [];
   svgParts.push(
@@ -702,7 +747,7 @@ function renderLineChart(
 
   const xTicksGroup: string[] = [];
   dates.forEach((date, index) => {
-    const x = margin.left + index * xStep;
+    const x = getX(index);
     const tickLabel = escapeXml(formatDateLabel(date));
 
     if (shouldRotateXTicks) {
@@ -726,7 +771,7 @@ function renderLineChart(
     const seriesColor = resolveColor(entry.color, themeName);
     const points = entry.values
       .map((value, index) => {
-        const x = margin.left + index * xStep;
+        const x = getX(index);
         const y = margin.top + innerHeight - (value / yMax) * innerHeight;
         return `${x},${y}`;
       })
@@ -734,7 +779,7 @@ function renderLineChart(
 
     const circles = entry.values
       .map((value, index) => {
-        const x = margin.left + index * xStep;
+        const x = getX(index);
         const y = margin.top + innerHeight - (value / yMax) * innerHeight;
         return `<circle cx="${x}" cy="${y}" r="4" fill="${seriesColor}" />`;
       })
