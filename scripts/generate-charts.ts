@@ -655,12 +655,13 @@ function buildCorepackAdoptionSeries(): { dates: string[]; series: LineSeries[] 
 function renderLineChart(
   dates: string[],
   series: LineSeries[],
-  options: { title: string; subtitle?: string; width?: number; height?: number },
+  options: { title: string; subtitle?: string; footer?: string; width?: number; height?: number },
   themeName: ThemeName = 'light',
 ): string {
   const theme = THEMES[themeName];
   const escapedTitle = escapeXml(options.title);
   const escapedSubtitle = options.subtitle ? escapeXml(options.subtitle) : undefined;
+  const escapedFooter = options.footer ? escapeXml(options.footer) : undefined;
   const width = options.width ?? 720;
   const height = options.height ?? 420;
   const estimatedTickLabelWidth = Math.max(...dates.map((date) => date.length), 0) * 7;
@@ -681,7 +682,13 @@ function renderLineChart(
         )
       : baseInnerWidth;
   const shouldRotateXTicks = dates.length > 1 && estimatedTickLabelWidth > estimatedXStep * 0.9;
-  const margin = { top: 72, right: 120, bottom: shouldRotateXTicks ? 96 : 64, left: 64 };
+  const footerSpace = escapedFooter ? 20 : 0;
+  const margin = {
+    top: 72,
+    right: 120,
+    bottom: (shouldRotateXTicks ? 96 : 64) + footerSpace,
+    left: 64,
+  };
   const titleX = 16;
   const subtitleX = 16;
   const titleY = 24;
@@ -718,6 +725,7 @@ function renderLineChart(
     .title { font-size: 20px; font-weight: 700; fill: ${theme.text}; }
     .subtitle { font-size: 12px; fill: ${theme.subtitle}; }
     .axis { stroke: ${theme.axis}; stroke-width: 1; }
+    .footer { font-size: 12px; fill: ${theme.footer}; }
     .legend { font-size: 12px; fill: ${theme.legend}; }
     .tick { font-size: 12px; fill: ${theme.tick}; }
   </style>
@@ -806,6 +814,10 @@ function renderLineChart(
 
   svgParts.push(`<g class="legend-group">${legendGroup.join('')}</g>`);
 
+  if (escapedFooter) {
+    svgParts.push(`<text class="footer" x="16" y="${height - 16}">${escapedFooter}</text>`);
+  }
+
   svgParts.push('</svg>');
 
   return svgParts.join('');
@@ -875,6 +887,7 @@ if (popularity.series.length) {
   const trendOptions = {
     title: 'Package manager popularity over time',
     subtitle: `${formatDateLabel(firstDate)} – ${formatDateLabel(lastDate)}`,
+    footer: '* A significant npm/pnpm counting bug was fixed on 3/13/2026',
   } as const;
 
   const trendChartLight = renderLineChart(

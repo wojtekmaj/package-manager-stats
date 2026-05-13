@@ -1,8 +1,8 @@
 {
-  "npm": 1138,
+  "npm": 848,
   "yarn_classic": 296,
   "yarn_modern": 104,
-  "pnpm": 95,
+  "pnpm": 385,
   "bun": 48,
   "unknown": 148
 }

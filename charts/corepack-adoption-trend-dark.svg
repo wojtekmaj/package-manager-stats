@@ -4,6 +4,7 @@
     .title { font-size: 20px; font-weight: 700; fill: #e2e8f0; }
     .subtitle { font-size: 12px; fill: #cbd5e1; }
     .axis { stroke: #475569; stroke-width: 1; }
+    .footer { font-size: 12px; fill: #cbd5e1; }
     .legend { font-size: 12px; fill: #e2e8f0; }
     .tick { font-size: 12px; fill: #cbd5e1; }
   </style>

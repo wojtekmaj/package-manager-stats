@@ -131,16 +131,19 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
       log(styleText('gray', '    Found packageManager'));
       stats.uses_corepack++;
 
-      // Extract major version from packageManager string (e.g. "npm@7.20.0")
-      const versionMatch = packageJson.packageManager.match(/@v?(\d+)/);
+      // Extract package manager name and major version, tolerating malformed prefixes.
+      const packageManagerMatch = packageJson.packageManager.match(
+        /(?:^|\W)(npm|yarn|pnpm|bun)@(?:v)?(\d+)/i,
+      );
 
-      if (!versionMatch) {
-        throw new Error(`packageManager version not recognized: ${packageJson.packageManager}`);
+      if (!packageManagerMatch) {
+        throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
       }
 
-      const version = Number(versionMatch[1]);
+      const [, packageManager, packageManagerVersion] = packageManagerMatch;
+      const version = Number(packageManagerVersion);
 
-      if (packageJson.packageManager.match(/npm/i)) {
+      if (packageManager?.toLowerCase() === 'npm') {
         log(styleText('green', '  npm detected'));
         packageManagerStats.npm++;
         const npmStats: Record<string, number> = packageManagerVersionStats.npm;
@@ -148,7 +151,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
-      if (packageJson.packageManager.match(/yarn@1/i)) {
+      if (packageManager?.toLowerCase() === 'yarn' && version === 1) {
         log(styleText('green', '  Yarn Classic detected'));
         packageManagerStats.yarn_classic++;
         const yarnClassicStats: Record<string, number> = packageManagerVersionStats.yarn_classic;
@@ -156,7 +159,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
-      if (packageJson.packageManager.match(/yarn@[2-9]/i)) {
+      if (packageManager?.toLowerCase() === 'yarn' && version >= 2) {
         log(styleText('green', '  Yarn Modern detected'));
         packageManagerStats.yarn_modern++;
         const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
@@ -164,7 +167,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
-      if (packageJson.packageManager.match(/pnpm/i)) {
+      if (packageManager?.toLowerCase() === 'pnpm') {
         log(styleText('green', '  pnpm detected'));
         packageManagerStats.pnpm++;
         const pnpmStats: Record<string, number> = packageManagerVersionStats.pnpm;
@@ -172,7 +175,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
-      if (packageJson.packageManager.match(/bun/i)) {
+      if (packageManager?.toLowerCase() === 'bun') {
         log(styleText('green', '  bun detected'));
         packageManagerStats.bun++;
         const bunStats: Record<string, number> = packageManagerVersionStats.bun;
