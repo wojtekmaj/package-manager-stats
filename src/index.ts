@@ -347,10 +347,12 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
     stats.has_lockfile++;
 
     const pnpmLockYaml = await fetchWithCacheInRepo('pnpm-lock.yaml', {
-      headers: { Range: 'bytes=0-22' },
+      headers: { Range: 'bytes=0-25' },
     });
 
-    const firstLineOfPnpmLockYaml = pnpmLockYaml.split('\n')[0] || '';
+    const firstLineOfPnpmLockYaml =
+      pnpmLockYaml.split('\n').filter((line) => line !== '---')[0] || '';
+
     const lockfileVersion = parseYaml(firstLineOfPnpmLockYaml).lockfileVersion;
 
     if (!lockfileVersion) {
