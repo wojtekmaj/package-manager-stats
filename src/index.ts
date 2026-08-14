@@ -133,15 +133,15 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
 
       // Extract package manager name and major version, tolerating malformed prefixes.
       const packageManagerMatch = packageJson.packageManager.match(
-        /(?:^|\W)(npm|yarn|pnpm|bun)@(?:v)?(\d+)/i,
+        /(?:^|\W)(npm|yarn|pnpm|bun)(@(?:v)?(\d+))?/i,
       );
 
       if (!packageManagerMatch) {
         throw new Error(`packageManager not recognized: ${packageJson.packageManager}`);
       }
 
-      const [, packageManager, packageManagerVersion] = packageManagerMatch;
-      const version = Number(packageManagerVersion);
+      const [, packageManager, , packageManagerVersion] = packageManagerMatch;
+      const version = packageManagerVersion ? Number(packageManagerVersion) : 'unknown';
 
       if (packageManager?.toLowerCase() === 'npm') {
         log(styleText('green', '  npm detected'));
@@ -159,7 +159,7 @@ await (DEBUG ? asyncForEachStrict : asyncForEach)(flattenedResults, async (resul
         return;
       }
 
-      if (packageManager?.toLowerCase() === 'yarn' && version >= 2) {
+      if (packageManager?.toLowerCase() === 'yarn' && typeof version === 'number' && version >= 2) {
         log(styleText('green', '  Yarn Modern detected'));
         packageManagerStats.yarn_modern++;
         const yarnModernStats: Record<string, number> = packageManagerVersionStats.yarn_modern;
